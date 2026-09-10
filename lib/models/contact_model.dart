@@ -1,34 +1,38 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ContactModel {
-  final String contactId;
+  final String id;
   final String name;
-  final String relation;
   final String phone;
+  final String relation;
+  final String bloodType;
+  final bool isPrimary;
 
   ContactModel({
-    required this.contactId,
+    required this.id,
     required this.name,
-    required this.relation,
     required this.phone,
+    required this.relation,
+    required this.bloodType,
+    this.isPrimary = false,
   });
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
-      'contactId': contactId,
       'name': name,
-      'relation': relation,
       'phone': phone,
+      'relation': relation,
+      'bloodType': bloodType,
+      'isPrimary': isPrimary,
     };
   }
 
-  factory ContactModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  factory ContactModel.fromMap(String id, Map<String, dynamic> map) {
     return ContactModel(
-      contactId: data['contactId'] ?? '',
-      name: data['name'] ?? '',
-      relation: data['relation'] ?? '',
-      phone: data['phone'] ?? '',
+      id: id,
+      name: map['name'] ?? '',
+      phone: map['phone'] ?? '',
+      relation: map['relation'] ?? '',
+      bloodType: map['bloodType'] ?? 'O+',
+      isPrimary: map['isPrimary'] ?? false,
     );
   }
 }

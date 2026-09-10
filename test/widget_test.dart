@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:aegis/main.dart';
+import 'package:aegis/core/models/trip_model.dart';
+import 'package:aegis/services/trip_service/trip_service_interface.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('LoginScreen smoke test', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LoginScreen(),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Safe Walk Login'), findsOneWidget);
+    expect(find.text('Login Screen stub'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('MockTripService startTrip test', () async {
+    final service = MockTripService();
+    final tripId = await service.startTrip(
+      ownerId: 'user123',
+      destination: const Destination(lat: 37.7749, lng: -122.4194, label: 'Home'),
+      contactIds: ['contact1'],
+      routeChosen: 'Main St',
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(tripId, equals('mock_trip_id_123'));
   });
 }
