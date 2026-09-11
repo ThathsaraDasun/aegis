@@ -18,7 +18,14 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
+
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            freeCompilerArgs.add("-Xskip-metadata-version-check")
+        }
+    }
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
 }
