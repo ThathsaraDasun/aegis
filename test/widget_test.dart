@@ -12,8 +12,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Safe Walk Login'), findsOneWidget);
-    expect(find.text('Login Screen stub'), findsOneWidget);
+    expect(find.text('AEGIS SAFE WALK'), findsOneWidget);
+    expect(find.text('Explore App Demo Features'), findsOneWidget);
   });
 
   test('MockTripService startTrip test', () async {
