@@ -46,7 +46,7 @@ class AegisApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const AuthWrapper(),
+        home: SplashScreen(nextScreen: const AuthWrapper()),
     );
   }
 }
