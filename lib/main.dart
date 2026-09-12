@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
+import 'screens/splash/splash_screen.dart';
 import 'theme/aegis_theme.dart';
 
 void main() async {
