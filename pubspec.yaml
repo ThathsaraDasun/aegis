@@ -43,6 +43,7 @@ dependencies:
   google_maps_flutter: ^2.9.0
 
   # Utilities
+  shared_preferences: ^2.3.5
   url_launcher: ^6.3.0
   flutter_local_notifications: ^18.0.1
   google_fonts: ^6.2.1

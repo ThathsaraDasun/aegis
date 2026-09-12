@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'screens/route/compass_screen.dart';
 
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
@@ -496,6 +497,42 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
               children: [
                 Expanded(
                   child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CompassScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AegisColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AegisColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.explore_outlined, color: AegisColors.primary, size: 28),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Find My Spot',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Open Compass',
+                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
                     onTap: _triggerCheckIn,
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
@@ -523,7 +560,11 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
                 Expanded(
                   child: InkWell(
                     onTap: () {
@@ -561,6 +602,7 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     ),
                   ),
                 ),
+                const Expanded(child: SizedBox()), // Spacer
               ],
             ),
           ],
