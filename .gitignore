@@ -49,4 +49,5 @@ android/local.properties
 .gradle/
 
 # Firebase configuration files
+google-services.json
 android/app/google-services.json

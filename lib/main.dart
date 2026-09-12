@@ -2,12 +2,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/splash/splash_screen.dart';
 import 'screens/route/compass_screen.dart';
 
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
+import 'screens/splash/splash_screen.dart';
 import 'theme/aegis_theme.dart';
 
 void main() async {
@@ -48,7 +48,7 @@ class AegisApp extends StatelessWidget {
           ),
         ),
       ),
-        home: SplashScreen(nextScreen: const AuthWrapper()),
+      home: SplashScreen(nextScreen: const AuthWrapper()),
     );
   }
 }
