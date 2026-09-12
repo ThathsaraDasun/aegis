@@ -3,10 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class TripModel {
   final String tripId;
   final String userId;
-  final String status; // active | completed | alerted
-  final Map<String, double> startLocation;
-  final Map<String, double> currentLocation;
-  final Map<String, double> destination;
+  final String status; // "active" | "completed" | "alerted"
+  final GeoPoint startLocation;
+  final GeoPoint currentLocation;
+  final GeoPoint destination;
   final DateTime startedAt;
   final DateTime? endedAt;
 
@@ -26,25 +26,46 @@ class TripModel {
       'tripId': tripId,
       'userId': userId,
       'status': status,
-      'startLocation': startLocation,
-      'currentLocation': currentLocation,
-      'destination': destination,
+      'startLocation': {
+        'lat': startLocation.latitude,
+        'lng': startLocation.longitude,
+      },
+      'currentLocation': {
+        'lat': currentLocation.latitude,
+        'lng': currentLocation.longitude,
+      },
+      'destination': {
+        'lat': destination.latitude,
+        'lng': destination.longitude,
+      },
       'startedAt': startedAt,
       'endedAt': endedAt,
     };
   }
 
   factory TripModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
+    
+    GeoPoint _toGeoPoint(dynamic loc) {
+      if (loc is GeoPoint) return loc;
+      if (loc is Map) {
+        return GeoPoint(
+          (loc['lat'] as num).toDouble(),
+          (loc['lng'] as num).toDouble(),
+        );
+      }
+      return const GeoPoint(0, 0);
+    }
+
     return TripModel(
-      tripId: data['tripId'] ?? '',
+      tripId: doc.id,
       userId: data['userId'] ?? '',
       status: data['status'] ?? 'active',
-      startLocation: Map<String, double>.from(data['startLocation'] ?? {}),
-      currentLocation: Map<String, double>.from(data['currentLocation'] ?? {}),
-      destination: Map<String, double>.from(data['destination'] ?? {}),
-      startedAt: (data['startedAt'] as Timestamp).toDate(),
-      endedAt: data['endedAt'] != null ? (data['endedAt'] as Timestamp).toDate() : null,
+      startLocation: _toGeoPoint(data['startLocation']),
+      currentLocation: _toGeoPoint(data['currentLocation']),
+      destination: _toGeoPoint(data['destination']),
+      startedAt: (data['startedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      endedAt: (data['endedAt'] as Timestamp?)?.toDate(),
     );
   }
 }

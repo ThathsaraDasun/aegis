@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
+import 'screens/trip/start_trip_screen.dart';
 import 'theme/aegis_theme.dart';
 
 void main() async {
@@ -462,7 +463,12 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: _toggleWalk,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const StartTripScreen()),
+                        );
+                      },
                       icon: Icon(_isTripActive ? Icons.stop : Icons.play_arrow),
                       label: Text(
                         _isTripActive ? 'End Live Sharing' : 'Start Live Safe Walk',
