@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AegisColors {
-  static const Color background = Color(0xFF121318);
+  static const Color background = Color(0xFF1A3A5C);
   static const Color primary = Color(0xFFFF5722); // Safety Orange
   static const Color primaryContainer = Color(0xFFC83A0E);
   static const Color secondary = Color(0xFF2196F3); // Trust Blue
