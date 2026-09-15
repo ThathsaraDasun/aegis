@@ -9,6 +9,7 @@ import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/route/compass_screen.dart';
+import 'screens/activity/trip_history_screen.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/trip_card.dart';
 import 'models/alert_model.dart';
@@ -655,7 +656,42 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     ),
                   ),
                 ),
-                const Expanded(child: SizedBox()), // Spacer
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TripHistoryScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AegisColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AegisColors.tertiary.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.history_outlined, color: AegisColors.tertiary, size: 28),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Trip History',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Past walks',
+                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
