@@ -8,6 +8,12 @@ import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/route/compass_screen.dart';
+import 'screens/activity/trip_history_screen.dart';
+import 'widgets/alert_banner.dart';
+import 'widgets/trip_card.dart';
+import 'models/alert_model.dart';
+import 'models/trip_model.dart';
 import 'theme/aegis_theme.dart';
 
 void main() async {
@@ -382,6 +388,28 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Dummy Data for Previewing Widgets
+    final dummyAlert = AlertModel(
+      alertId: "a1",
+      tripId: "t1",
+      userId: "u1",
+      type: "fall_detected",
+      location: {"lat": 6.9271, "lng": 79.8612},
+      triggeredAt: DateTime.now(),
+      resolved: false,
+    );
+
+    final dummyTrip = TripModel(
+      tripId: "t1",
+      userId: "u1",
+      status: "completed",
+      startLocation: {"lat": 6.9271, "lng": 79.8612},
+      currentLocation: {"lat": 6.9275, "lng": 79.8615},
+      destination: {"lat": 6.9344, "lng": 79.8451},
+      startedAt: DateTime.now().subtract(const Duration(hours: 1)),
+      endedAt: DateTime.now().subtract(const Duration(minutes: 10)),
+    );
+
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
@@ -405,6 +433,15 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Alert Banner Preview
+            AlertBanner(
+              alert: dummyAlert,
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Alert details coming soon!")),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Status Card
             Container(
               padding: const EdgeInsets.all(20),
@@ -480,6 +517,23 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'RECENT TRIPS',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: AegisColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TripCard(
+              trip: dummyTrip,
+              onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Trip history details coming soon!")),
               ),
             ),
             const SizedBox(height: 24),
@@ -602,7 +656,42 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     ),
                   ),
                 ),
-                const Expanded(child: SizedBox()), // Spacer
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const TripHistoryScreen()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AegisColors.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AegisColors.tertiary.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.history_outlined, color: AegisColors.tertiary, size: 28),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Trip History',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Past walks',
+                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
