@@ -26,7 +26,7 @@ class AlertBanner extends StatelessWidget {
     final IconData alertIcon = isManualSos ? Icons.sos : Icons.personal_injury;
     final String alertLabel = isManualSos ? 'Manual SOS' : 'Fall Detected';
     
-    final Color alertColor = alert.resolved ? AegisColors.tertiary : Colors.redAccent;
+    final Color alertColor = alert.resolved ? AegisColors.tertiary : AegisColors.primary;
 
     return Card(
       color: AegisColors.surfaceContainerHigh,
@@ -39,7 +39,7 @@ class AlertBanner extends StatelessWidget {
           width: 1,
         ),
       ),
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),

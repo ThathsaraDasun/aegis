@@ -76,8 +76,8 @@ class _CompassScreenState extends State<CompassScreen> {
     _positionSubscription?.cancel();
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best, // නිරවද්‍යතාවය උපරිම කිරීම
-        distanceFilter: 0, // සෑම මීටරයකටම යාවත්කාලීන කිරීම
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
       ),
     ).listen((position) {
       if (mounted) {
@@ -171,15 +171,7 @@ class _CompassScreenState extends State<CompassScreen> {
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          "Compass",
-          style: GoogleFonts.outfit(
-            color: AegisColors.textPrimary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: const Text("Compass"),
         actions: [
           if (_destination != null)
             IconButton(
@@ -208,35 +200,35 @@ class _CompassScreenState extends State<CompassScreen> {
 
   Widget _buildEmptyState() {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(32.0),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
               Icons.location_on_outlined,
-              size: 80,
+              size: 64,
               color: AegisColors.textSecondary,
             ),
             const SizedBox(height: 24),
             Text(
               "No Destination Set",
               style: GoogleFonts.outfit(
-                fontSize: 24,
+                fontSize: 22,
                 color: AegisColors.textPrimary,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               "Save your current location to find your way back later.",
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
+              style: GoogleFonts.inter(
+                fontSize: 14,
                 color: AegisColors.textSecondary,
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _saveCurrentLocation,
               icon: const Icon(Icons.add_location_alt),
@@ -244,9 +236,9 @@ class _CompassScreenState extends State<CompassScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AegisColors.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                textStyle: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ],
@@ -268,7 +260,7 @@ class _CompassScreenState extends State<CompassScreen> {
             style: GoogleFonts.outfit(
               fontSize: 22,
               color: AegisColors.textSecondary,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 40),
@@ -279,7 +271,7 @@ class _CompassScreenState extends State<CompassScreen> {
               return Transform.rotate(
                 angle: angle,
                 child: const Icon(
-                  Icons.navigation, // නැවතත් ලස්සන Navigation icon එකට මාරු කළා
+                  Icons.navigation,
                   size: 200,
                   color: AegisColors.primary,
                 ),
@@ -298,19 +290,23 @@ class _CompassScreenState extends State<CompassScreen> {
           Text(
             "REMAINING",
             style: GoogleFonts.outfit(
-              fontSize: 16,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
               color: AegisColors.textSecondary,
-              letterSpacing: 2,
+              letterSpacing: 1.2,
             ),
           ),
-          const SizedBox(height: 60),
+          const SizedBox(height: 40),
           if (_errorMessage != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent),
+                style: GoogleFonts.inter(
+                  color: AegisColors.primary,
+                  fontSize: 14,
+                ),
               ),
             ),
         ],
@@ -320,22 +316,27 @@ class _CompassScreenState extends State<CompassScreen> {
 
   Widget _buildErrorState() {
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(32.0),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+            const Icon(Icons.error_outline, size: 64, color: AegisColors.primary),
             const SizedBox(height: 16),
             Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+              style: GoogleFonts.inter(color: AegisColors.textPrimary, fontSize: 14),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _initialize,
-              child: const Text("Retry"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AegisColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: Text("Retry", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
             ),
           ],
         ),

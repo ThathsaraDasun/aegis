@@ -22,15 +22,7 @@ class TripHistoryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
-        title: Text(
-          'Trip History',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: AegisColors.surfaceContainerLow,
-        elevation: 0,
-        centerTitle: true,
+        title: const Text('Trip History'),
       ),
       body: _useDummyData ? _buildDummyList() : _buildFirestoreStream(user),
     );
@@ -52,7 +44,6 @@ class TripHistoryScreen extends StatelessWidget {
           return _ErrorState(
             error: snapshot.error.toString(),
             onRetry: () {
-              // StreamBuilder automatically retries on rebuild
               (context as Element).markNeedsBuild();
             },
           );
@@ -172,9 +163,9 @@ class _EmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 color: AegisColors.textSecondary,
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
           ],
@@ -200,8 +191,8 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(
               Icons.error_outline,
-              size: 48,
-              color: Colors.redAccent,
+              size: 64,
+              color: AegisColors.primary,
             ),
             const SizedBox(height: 16),
             Text(
@@ -229,6 +220,7 @@ class _ErrorState extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AegisColors.primary,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
             ),
           ],

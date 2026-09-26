@@ -37,15 +37,7 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
-        title: Text(
-          'Profile',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: AegisColors.surfaceContainerLow,
-        elevation: 0,
-        centerTitle: true,
+        title: const Text('Profile'),
       ),
       body: _useDummyData
           ? _buildProfileContent(context, _dummyUser, firebaseUser?.email ?? 'demo@aegis.safe')
@@ -112,7 +104,7 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AegisColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
@@ -169,7 +161,7 @@ class ProfileScreen extends StatelessWidget {
           Text(
             'EMERGENCY MEDICAL PROFILE',
             style: GoogleFonts.outfit(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
               color: AegisColors.primary,
@@ -183,7 +175,7 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AegisColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: AegisColors.primary.withOpacity(0.3),
                 width: 1,
@@ -225,7 +217,7 @@ class ProfileScreen extends StatelessWidget {
                   user.emergencyNote.isNotEmpty
                       ? user.emergencyNote
                       : 'No emergency notes specified.',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AegisColors.textPrimary,
                   ),
@@ -245,7 +237,7 @@ class ProfileScreen extends StatelessWidget {
                   SnackBar(
                     content: Text(
                       'Edit Profile feature coming soon!',
-                      style: GoogleFonts.outfit(),
+                      style: GoogleFonts.inter(),
                     ),
                     backgroundColor: AegisColors.surfaceContainerHighest,
                   ),
@@ -286,7 +278,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.shade700,
+                backgroundColor: AegisColors.primaryContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -336,13 +328,12 @@ class ProfileScreen extends StatelessWidget {
   Future<void> _handleSignOut(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
-      // AuthWrapper or Navigator will handle returning to LoginScreen
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error signing out: $e', style: GoogleFonts.outfit()),
-            backgroundColor: Colors.redAccent,
+            content: Text('Error signing out: $e', style: GoogleFonts.inter()),
+            backgroundColor: AegisColors.primaryContainer,
           ),
         );
       }
@@ -390,9 +381,9 @@ class _ErrorOrEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 color: AegisColors.textSecondary,
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
             if (onAction != null && actionLabel != null) ...[
@@ -401,10 +392,11 @@ class _ErrorOrEmptyState extends StatelessWidget {
                 onPressed: onAction,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AegisColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: Text(
                   actionLabel!,
-                  style: GoogleFonts.outfit(color: Colors.white),
+                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
             ],

@@ -31,7 +31,7 @@ class TripCard extends StatelessWidget {
         statusColor = AegisColors.tertiary;
         break;
       case 'alerted':
-        statusColor = Colors.redAccent;
+        statusColor = AegisColors.primary;
         break;
       case 'active':
       default:
@@ -53,7 +53,7 @@ class TripCard extends StatelessWidget {
       color: AegisColors.surfaceContainerHigh,
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
