@@ -10,6 +10,8 @@ import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/route/compass_screen.dart';
 import 'screens/activity/trip_history_screen.dart';
+import 'screens/activity/activity_feed_screen.dart';
+import 'screens/profile/profile_screen.dart';
 import 'widgets/alert_banner.dart';
 import 'widgets/trip_card.dart';
 import 'models/alert_model.dart';
@@ -268,9 +270,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = [
     const ActiveWalkDashboardScreen(),
+    const ActivityFeedScreen(),
     const TrustedContactsListScreen(),
+    const ProfileScreen(),
     const RouteComparisonScreen(),
-    const ReportHazardScreen(),
   ];
 
   @override
@@ -304,19 +307,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               label: 'Walk',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_none_outlined),
+              activeIcon: Icon(Icons.notifications_active),
+              label: 'Activity',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.people_outline),
               activeIcon: Icon(Icons.people),
               label: 'Guardians',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.alt_route_outlined),
               activeIcon: Icon(Icons.alt_route),
               label: 'Routes',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.warning_amber_rounded),
-              activeIcon: Icon(Icons.warning),
-              label: 'Report',
             ),
           ],
         ),
@@ -415,6 +423,15 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
       appBar: AppBar(
         title: Text('Aegis Live Walk', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline, color: AegisColors.primary),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: AegisColors.textSecondary),
             onPressed: () async {
