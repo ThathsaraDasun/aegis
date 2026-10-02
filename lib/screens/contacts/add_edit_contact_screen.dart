@@ -78,73 +78,97 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
     }
   }
 
+  InputDecoration _buildInputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+      prefixIcon: Icon(icon, color: AegisColors.textSecondary, size: 20),
+      filled: true,
+      fillColor: AegisColors.surfaceContainerHigh,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: AegisColors.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
-        title: Text("Add Guardian & Medical Info", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text("Add Guardian & Medical Info", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Guardian Contact Details", style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
+            Text("Guardian Contact Details", 
+              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.primary)),
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Full Name (e.g. Elena Vance)", border: OutlineInputBorder()),
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Full Name (e.g. Elena Vance)", Icons.person_outline),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Phone Number (+1 555-019-2834)", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _relationController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Relationship (e.g. Mother, Spouse, Doctor)", border: OutlineInputBorder()),
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Phone Number (+1 555-019-2834)", Icons.phone_outlined),
             ),
             const SizedBox(height: 16),
+            TextField(
+              controller: _relationController,
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Relationship (e.g. Mother, Spouse)", Icons.people_outline),
+            ),
+            const SizedBox(height: 8),
             SwitchListTile(
-              title: Text("Set as Primary Tier 1 Guardian", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
-              subtitle: Text("Primary guardians receive immediate phone call & live video stream during SOS.", style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
+              contentPadding: EdgeInsets.zero,
+              title: Text("Set as Primary Tier 1 Guardian", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
+              subtitle: Text("Primary guardians receive immediate SOS alerts.", style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
               value: _isPrimaryGuardian,
-              activeThumbColor: AegisColors.primary,
+              activeColor: AegisColors.primary,
               onChanged: (val) => setState(() => _isPrimaryGuardian = val),
             ),
-            const SizedBox(height: 24),
-            Text("Medical Info Profile (Optional)", style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 32),
+            Text("Medical Info Profile (Optional)", 
+              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.primary)),
+            const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              initialValue: _bloodType,
+              value: _bloodType,
               dropdownColor: AegisColors.surfaceContainerHigh,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Blood Type", border: OutlineInputBorder()),
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Blood Type", Icons.bloodtype_outlined),
               items: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
                   .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                   .toList(),
               onChanged: (val) => setState(() => _bloodType = val!),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _allergiesController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Allergies / Conditions (e.g. Penicillin, Asthma)", border: OutlineInputBorder()),
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Allergies / Conditions", Icons.medical_services_outlined),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             TextField(
               controller: _emergencyNoteController,
               maxLines: 3,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Emergency Note for Responders", border: OutlineInputBorder()),
+              style: GoogleFonts.outfit(color: Colors.white),
+              decoration: _buildInputDecoration("Emergency Note", Icons.note_alt_outlined),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -157,7 +181,12 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
                     : const Icon(Icons.save, color: Colors.white),
-                label: Text("SAVE GUARDIAN & MEDICAL PROFILE", style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
+                label: Text("SAVE GUARDIAN & MEDICAL PROFILE", 
+                  style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AegisColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
           ],
