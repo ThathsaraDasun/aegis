@@ -35,16 +35,39 @@ class TripModel {
   }
 
   factory TripModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? {};
     return TripModel(
-      tripId: data['tripId'] ?? '',
+      tripId: (data['tripId'] as String?)?.isNotEmpty == true ? data['tripId'] : doc.id,
       userId: data['userId'] ?? '',
       status: data['status'] ?? 'active',
-      startLocation: Map<String, double>.from(data['startLocation'] ?? {}),
-      currentLocation: Map<String, double>.from(data['currentLocation'] ?? {}),
-      destination: Map<String, double>.from(data['destination'] ?? {}),
-      startedAt: (data['startedAt'] as Timestamp).toDate(),
-      endedAt: data['endedAt'] != null ? (data['endedAt'] as Timestamp).toDate() : null,
+      startLocation: parseLatLng(data['startLocation']),
+      currentLocation: parseLatLng(data['currentLocation']),
+      destination: parseLatLng(data['destination']),
+      startedAt: parseDate(data['startedAt']) ?? DateTime.now(),
+      endedAt: parseDate(data['endedAt']),
     );
   }
+}
+
+/// Reads a {lat, lng} map from Firestore, accepting ints, doubles or GeoPoints.
+Map<String, double> parseLatLng(dynamic value) {
+  if (value is GeoPoint) {
+    return {'lat': value.latitude, 'lng': value.longitude};
+  }
+  if (value is Map) {
+    final result = <String, double>{};
+    value.forEach((key, v) {
+      if (v is num) result[key.toString()] = v.toDouble();
+    });
+    return result;
+  }
+  return {};
+}
+
+/// Reads a date from Firestore, accepting a Timestamp, DateTime or ISO string.
+DateTime? parseDate(dynamic value) {
+  if (value is Timestamp) return value.toDate();
+  if (value is DateTime) return value;
+  if (value is String) return DateTime.tryParse(value);
+  return null;
 }

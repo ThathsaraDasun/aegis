@@ -44,16 +44,16 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
           final contacts = snapshot.data ?? [];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(AegisSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Guardian Circle Active Header Card
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AegisSpacing.lg),
                   decoration: BoxDecoration(
                     color: AegisColors.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AegisRadius.lgAll,
                     boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
                   ),
                   child: Column(
@@ -64,14 +64,14 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(AegisSpacing.sm),
                                 decoration: BoxDecoration(
                                   color: AegisColors.tertiaryContainer,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: AegisRadius.smAll,
                                 ),
                                 child: const Icon(Icons.shield, color: AegisColors.tertiary, size: 20),
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: AegisSpacing.md),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -115,7 +115,7 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AegisSpacing.lg),
                       Row(
                         children: [
                           _buildMetricTile("Avg Response", "14s", AegisColors.tertiary),
@@ -126,7 +126,7 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AegisSpacing.xxl),
 
                 // Contacts list / Empty State
                 Text(
@@ -143,15 +143,15 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                 if (contacts.isEmpty)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(AegisSpacing.xxl),
                     decoration: BoxDecoration(
                       color: AegisColors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: AegisRadius.lgAll,
                     ),
                     child: Column(
                       children: [
                         const Icon(Icons.people_outline, color: AegisColors.textSecondary, size: 48),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AegisSpacing.md),
                         Text(
                           "No contacts added yet",
                           style: GoogleFonts.outfit(
@@ -160,7 +160,7 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                             color: AegisColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AegisSpacing.xs),
                         Text(
                           "Add primary emergency contacts to receive instant SOS alerts.",
                           textAlign: TextAlign.center,
@@ -189,7 +189,7 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                     },
                   ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: AegisSpacing.xxl),
                 // Emergency Medical Profile Summary
                 Text(
                   "EMERGENCY MEDICAL PROFILE",
@@ -202,10 +202,10 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AegisSpacing.lg),
                   decoration: BoxDecoration(
                     color: AegisColors.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: AegisRadius.mdAll,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +226,7 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AegisSpacing.sm),
                       Text(
                         "Emergency Note: Contact primary responders first during automated SOS escalation.",
                         style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
@@ -245,16 +245,16 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
   Widget _buildMetricTile(String label, String value, Color valueColor) {
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
+        margin: const EdgeInsets.symmetric(horizontal: AegisSpacing.xs),
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: AegisColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AegisRadius.smAll,
         ),
         child: Column(
           children: [
             Text(label, style: GoogleFonts.outfit(fontSize: 10, color: AegisColors.textSecondary)),
-            const SizedBox(height: 2),
+            const SizedBox(height: AegisSpacing.xxs),
             Text(value, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: valueColor)),
           ],
         ),

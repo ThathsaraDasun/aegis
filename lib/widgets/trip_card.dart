@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../models/trip_model.dart';
 import '../theme/aegis_theme.dart';
+import 'state_views.dart';
 
 /// A card that displays summary information about a trip.
-/// 
+///
 /// Shows status, start time, date, duration (if ended), and destination.
 class TripCard extends StatelessWidget {
   /// The trip data to display.
   final TripModel trip;
-  
+
   /// Callback when the card is tapped.
   final VoidCallback? onTap;
 
@@ -20,145 +20,100 @@ class TripCard extends StatelessWidget {
     this.onTap,
   });
 
+  /// Colour used for a trip status across the app.
+  static Color statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return AegisColors.tertiary;
+      case 'alerted':
+        return AegisColors.primary;
+      case 'active':
+      default:
+        return AegisColors.secondary;
+    }
+  }
+
+  /// "45m" / "1h 20m", or null while the trip is still running.
+  static String? durationLabel(TripModel trip) {
+    if (trip.endedAt == null) return null;
+    final duration = trip.endedAt!.difference(trip.startedAt);
+    if (duration.inMinutes < 60) return '${duration.inMinutes}m';
+    return '${duration.inHours}h ${duration.inMinutes % 60}m';
+  }
+
+  /// "6.9344, 79.8451" for a {lat, lng} map.
+  static String coordinateLabel(Map<String, double> point) {
+    final lat = point['lat'];
+    final lng = point['lng'];
+    if (lat == null || lng == null) return 'Unknown location';
+    return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('hh:mm a');
-    
-    Color statusColor;
-    switch (trip.status.toLowerCase()) {
-      case 'completed':
-        statusColor = AegisColors.tertiary;
-        break;
-      case 'alerted':
-        statusColor = AegisColors.primary;
-        break;
-      case 'active':
-      default:
-        statusColor = AegisColors.primary;
-        break;
-    }
-
-    String? durationString;
-    if (trip.endedAt != null) {
-      final duration = trip.endedAt!.difference(trip.startedAt);
-      if (duration.inMinutes < 60) {
-        durationString = '${duration.inMinutes}m';
-      } else {
-        durationString = '${duration.inHours}h ${duration.inMinutes % 60}m';
-      }
-    }
+    final color = statusColor(trip.status);
+    final duration = durationLabel(trip);
 
     return Card(
-      color: AegisColors.surfaceContainerHigh,
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AegisRadius.mdAll,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: AegisSpacing.card,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        trip.status.toUpperCase(),
-                        style: GoogleFonts.outfit(
-                          color: statusColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (durationString != null)
-                    Text(
-                      durationString,
-                      style: GoogleFonts.inter(
-                        color: AegisColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
+                  StatusChip(label: trip.status, color: color),
+                  Text(duration ?? 'In progress', style: AegisText.small),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Destination',
-                style: GoogleFonts.inter(
-                  color: AegisColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AegisSpacing.md),
+              Text('Destination', style: AegisText.small),
+              const SizedBox(height: AegisSpacing.xs),
               Row(
                 children: [
                   const Icon(
                     Icons.location_on_outlined,
                     color: AegisColors.primary,
-                    size: 18,
+                    size: AegisSizes.iconMd,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Lat: ${trip.destination['lat']?.toStringAsFixed(4)}, Lng: ${trip.destination['lng']?.toStringAsFixed(4)}',
-                      style: GoogleFonts.outfit(
-                        color: AegisColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      coordinateLabel(trip.destination),
+                      style: AegisText.bodyStrong,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (onTap != null)
+                    const Icon(Icons.chevron_right, color: AegisColors.textSecondary),
                 ],
               ),
-              const SizedBox(height: 16),
-              const Divider(color: AegisColors.surfaceContainerHighest, height: 1),
-              const SizedBox(height: 12),
+              const SizedBox(height: AegisSpacing.lg),
+              const Divider(),
+              const SizedBox(height: AegisSpacing.md),
               Row(
                 children: [
                   const Icon(
                     Icons.calendar_today_outlined,
                     color: AegisColors.textSecondary,
-                    size: 14,
+                    size: AegisSizes.iconSm,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    dateFormat.format(trip.startedAt),
-                    style: GoogleFonts.inter(
-                      color: AegisColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
+                  Text(dateFormat.format(trip.startedAt), style: AegisText.caption),
+                  const SizedBox(width: AegisSpacing.lg),
                   const Icon(
                     Icons.access_time,
                     color: AegisColors.textSecondary,
-                    size: 14,
+                    size: AegisSizes.iconSm,
                   ),
                   const SizedBox(width: 6),
-                  Text(
-                    timeFormat.format(trip.startedAt),
-                    style: GoogleFonts.inter(
-                      color: AegisColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
+                  Text(timeFormat.format(trip.startedAt), style: AegisText.caption),
                 ],
               ),
             ],

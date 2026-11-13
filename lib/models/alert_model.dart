@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'trip_model.dart' show parseLatLng, parseDate;
 
 class AlertModel {
   final String alertId;
@@ -19,6 +20,15 @@ class AlertModel {
     this.resolved = false,
   });
 
+  /// Outcome shown in the alert log.
+  ///
+  /// An alert is only written once the SOS pipeline fires, so an alert the
+  /// user has not marked as resolved is treated as escalated to contacts.
+  String get outcome => resolved ? 'resolved' : 'escalated';
+
+  /// Human-readable alert type.
+  String get typeLabel => type.toLowerCase() == 'manual_sos' ? 'Manual SOS' : 'Fall Detected';
+
   Map<String, dynamic> toFirestore() {
     return {
       'alertId': alertId,
@@ -32,14 +42,14 @@ class AlertModel {
   }
 
   factory AlertModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = (doc.data() as Map<String, dynamic>?) ?? {};
     return AlertModel(
-      alertId: data['alertId'] ?? '',
+      alertId: (data['alertId'] as String?)?.isNotEmpty == true ? data['alertId'] : doc.id,
       tripId: data['tripId'] ?? '',
       userId: data['userId'] ?? '',
       type: data['type'] ?? '',
-      location: Map<String, double>.from(data['location'] ?? {}),
-      triggeredAt: (data['triggeredAt'] as Timestamp).toDate(),
+      location: parseLatLng(data['location']),
+      triggeredAt: parseDate(data['triggeredAt']) ?? DateTime.now(),
       resolved: data['resolved'] ?? false,
     );
   }

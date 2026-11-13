@@ -86,11 +86,11 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
       filled: true,
       fillColor: AegisColors.surfaceContainerHigh,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AegisRadius.mdAll,
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AegisRadius.mdAll,
         borderSide: const BorderSide(color: AegisColors.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -107,32 +107,32 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
         title: Text("Add Guardian & Medical Info", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(AegisSpacing.xxl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Guardian Contact Details", 
               style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.primary)),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             TextField(
               controller: _nameController,
               style: GoogleFonts.outfit(color: Colors.white),
               decoration: _buildInputDecoration("Full Name (e.g. Elena Vance)", Icons.person_outline),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               style: GoogleFonts.outfit(color: Colors.white),
               decoration: _buildInputDecoration("Phone Number (+1 555-019-2834)", Icons.phone_outlined),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             TextField(
               controller: _relationController,
               style: GoogleFonts.outfit(color: Colors.white),
               decoration: _buildInputDecoration("Relationship (e.g. Mother, Spouse)", Icons.people_outline),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AegisSpacing.sm),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text("Set as Primary Tier 1 Guardian", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15)),
@@ -141,10 +141,10 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
               activeColor: AegisColors.primary,
               onChanged: (val) => setState(() => _isPrimaryGuardian = val),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: AegisSpacing.xxxl),
             Text("Medical Info Profile (Optional)", 
               style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.primary)),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             DropdownButtonFormField<String>(
               value: _bloodType,
               dropdownColor: AegisColors.surfaceContainerHigh,
@@ -155,20 +155,20 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
                   .toList(),
               onChanged: (val) => setState(() => _bloodType = val!),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             TextField(
               controller: _allergiesController,
               style: GoogleFonts.outfit(color: Colors.white),
               decoration: _buildInputDecoration("Allergies / Conditions", Icons.medical_services_outlined),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             TextField(
               controller: _emergencyNoteController,
               maxLines: 3,
               style: GoogleFonts.outfit(color: Colors.white),
               decoration: _buildInputDecoration("Emergency Note", Icons.note_alt_outlined),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: AegisSpacing.huge),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -185,7 +185,7 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
                   style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AegisColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: AegisRadius.mdAll),
                 ),
               ),
             ),

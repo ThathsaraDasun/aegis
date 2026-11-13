@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
       return Opacity(
         opacity: opacity,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.xxs),
           child: Text(
             letters[i],
             style: GoogleFonts.outfit(

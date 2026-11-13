@@ -15,7 +15,7 @@ class RouteComparisonScreen extends StatelessWidget {
       backgroundColor: AegisColors.background,
       appBar: AppBar(title: Text("Route Safety Scoring", style: GoogleFonts.outfit(fontWeight: FontWeight.bold))),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(AegisSpacing.lg),
         child: Column(
           children: [
             _buildRouteCard(
@@ -26,7 +26,7 @@ class RouteComparisonScreen extends StatelessWidget {
               hazards: "0 Reported",
               isRecommended: true,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AegisSpacing.lg),
             _buildRouteCard(
               title: "Route B: Back Alley Cut-through",
               score: "$routeBScore%",
@@ -50,10 +50,10 @@ class RouteComparisonScreen extends StatelessWidget {
     required bool isRecommended,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AegisSpacing.lg),
       decoration: BoxDecoration(
         color: AegisColors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AegisRadius.lgAll,
         border: isRecommended ? Border.all(color: AegisColors.tertiary, width: 2) : null,
       ),
       child: Column(
@@ -70,7 +70,7 @@ class RouteComparisonScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: isRecommended ? AegisColors.tertiaryContainer : AegisColors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AegisRadius.smAll,
                 ),
                 child: Text(
                   "Safety $score",
@@ -82,7 +82,7 @@ class RouteComparisonScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AegisSpacing.sm),
           Text(duration, style: GoogleFonts.outfit(color: AegisColors.textSecondary)),
           const Divider(color: AegisColors.surfaceContainerHighest, height: 20),
           Row(

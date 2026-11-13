@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -30,7 +31,7 @@ class SavedLocationService {
 
       // Get current position
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       final savedLocation = SavedLocation(
@@ -41,14 +42,35 @@ class SavedLocationService {
         savedAt: DateTime.now(),
       );
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_storageKey, savedLocation.toJson());
-
+      await saveLocation(savedLocation);
       return savedLocation;
     } catch (e) {
-      print('Error saving location: $e');
+      debugPrint('Error saving location: $e');
       return null;
     }
+  }
+
+  /// Saves an explicit point (e.g. a past trip's destination) as the
+  /// compass target.
+  Future<SavedLocation> saveLocation(SavedLocation location) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, location.toJson());
+    return location;
+  }
+
+  /// Saves a latitude/longitude pair with a label as the compass target.
+  Future<SavedLocation> saveCoordinates({
+    required String label,
+    required double latitude,
+    required double longitude,
+  }) {
+    return saveLocation(SavedLocation(
+      id: const Uuid().v4(),
+      label: label,
+      latitude: latitude,
+      longitude: longitude,
+      savedAt: DateTime.now(),
+    ));
   }
 
   /// Retrieves the currently saved location.

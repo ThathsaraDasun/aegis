@@ -61,17 +61,17 @@ class _ReportHazardScreenState extends State<ReportHazardScreen> {
         title: Text("Report Safety Hazard", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AegisSpacing.xl),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: AegisColors.surfaceContainerHigh, borderRadius: BorderRadius.circular(16)),
+              padding: const EdgeInsets.all(AegisSpacing.md),
+              decoration: BoxDecoration(color: AegisColors.surfaceContainerHigh, borderRadius: AegisRadius.mdAll),
               child: Row(
                 children: [
                   const Icon(Icons.my_location, color: AegisColors.tertiary),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AegisSpacing.md),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -82,9 +82,9 @@ class _ReportHazardScreenState extends State<ReportHazardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AegisSpacing.xxl),
             Text("Select Hazard Type", style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-            const SizedBox(height: 12),
+            const SizedBox(height: AegisSpacing.md),
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -99,9 +99,9 @@ class _ReportHazardScreenState extends State<ReportHazardScreen> {
                 _buildCategoryCard("Animal Threat", Icons.pets, "Aggressive unleashed animal", AegisColors.secondary),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AegisSpacing.xxl),
             Text("Description & Details", style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-            const SizedBox(height: 8),
+            const SizedBox(height: AegisSpacing.sm),
             TextField(
               controller: _descriptionController,
               maxLines: 3,
@@ -111,10 +111,10 @@ class _ReportHazardScreenState extends State<ReportHazardScreen> {
                 fillColor: AegisColors.surfaceContainerHigh,
                 hintText: "Describe details e.g. dark alley, loitering group...",
                 hintStyle: const TextStyle(color: AegisColors.textSecondary),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                border: OutlineInputBorder(borderRadius: AegisRadius.mdAll, borderSide: BorderSide.none),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AegisSpacing.xxl),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -142,10 +142,10 @@ class _ReportHazardScreenState extends State<ReportHazardScreen> {
     return GestureDetector(
       onTap: () => setState(() => _selectedCategory = title),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AegisSpacing.md),
         decoration: BoxDecoration(
           color: isSelected ? AegisColors.primaryContainer : AegisColors.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: AegisRadius.mdAll,
           border: isSelected ? Border.all(color: AegisColors.tertiary, width: 2) : null,
         ),
         child: Column(
