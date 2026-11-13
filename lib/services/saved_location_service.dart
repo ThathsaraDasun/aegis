@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -30,7 +31,7 @@ class SavedLocationService {
 
       // Get current position
       Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
 
       final savedLocation = SavedLocation(
@@ -46,7 +47,7 @@ class SavedLocationService {
 
       return savedLocation;
     } catch (e) {
-      print('Error saving location: $e');
+      debugPrint('Error saving location: $e');
       return null;
     }
   }

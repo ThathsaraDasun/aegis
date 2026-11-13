@@ -219,7 +219,7 @@ class _EmptyState extends StatelessWidget {
             Icon(
               Icons.notifications_none_outlined,
               size: 64,
-              color: AegisColors.textSecondary.withOpacity(0.5),
+              color: AegisColors.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(

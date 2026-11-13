@@ -2,10 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/route/compass_screen.dart';
 
 import 'screens/contacts/contacts_list_screen.dart';
-import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
 
@@ -37,26 +35,7 @@ class AegisApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aegis - Safe Walk',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: AegisColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AegisColors.primary,
-          primary: AegisColors.primary,
-          secondary: AegisColors.secondary,
-          surface: AegisColors.surfaceContainerLow,
-        ),
-        appBarTheme: AppBarTheme(
-          centerTitle: true,
-          backgroundColor: AegisColors.surfaceContainerLow,
-          foregroundColor: AegisColors.textPrimary,
-          titleTextStyle: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AegisColors.textPrimary,
-          ),
-        ),
-      ),
+      theme: AegisTheme.dark(),
       home: SplashScreen(nextScreen: const AuthWrapper()),
     );
   }
