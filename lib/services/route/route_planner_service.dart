@@ -51,7 +51,7 @@ class RoutePlannerService {
     LatLng? via,
     required bool alternatives,
   }) async {
-    final pts = [from, if (via != null) via, to];
+    final pts = [from, ?via, to];
     final coords = pts
         .map((p) => '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}')
         .join(';');

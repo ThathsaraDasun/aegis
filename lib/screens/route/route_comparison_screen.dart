@@ -126,8 +126,8 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
   void _fitToRoutes() {
     final pts = [
       ..._routes.expand((r) => r.points),
-      if (_origin != null) _origin!,
-      if (_destination != null) _destination!,
+      ?_origin,
+      ?_destination,
     ];
     if (pts.length < 2) return;
     try {

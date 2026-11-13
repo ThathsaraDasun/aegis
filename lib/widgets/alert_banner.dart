@@ -31,11 +31,11 @@ class AlertBanner extends StatelessWidget {
     return Card(
       color: AegisColors.surfaceContainerHigh,
       elevation: 4,
-      shadowColor: alertColor.withOpacity(0.2),
+      shadowColor: alertColor.withValues(alpha: 0.2),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: alertColor.withOpacity(0.3),
+          color: alertColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -57,7 +57,7 @@ class AlertBanner extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: alertColor.withOpacity(0.1),
+                    color: alertColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -93,7 +93,7 @@ class AlertBanner extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: alertColor.withOpacity(0.15),
+                    color: alertColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

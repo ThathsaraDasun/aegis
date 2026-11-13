@@ -177,7 +177,7 @@ class ProfileScreen extends StatelessWidget {
               color: AegisColors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AegisColors.primary.withOpacity(0.3),
+                color: AegisColors.primary.withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -375,7 +375,7 @@ class _ErrorOrEmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: AegisColors.textSecondary.withOpacity(0.5),
+              color: AegisColors.textSecondary.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
