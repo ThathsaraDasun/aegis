@@ -8,6 +8,7 @@ import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/report_hazard_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
+
 import 'screens/route/compass_screen.dart';
 import 'screens/activity/trip_history_screen.dart';
 import 'screens/activity/activity_feed_screen.dart';

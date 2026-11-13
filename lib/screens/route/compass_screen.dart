@@ -76,6 +76,8 @@ class _CompassScreenState extends State<CompassScreen> {
     _positionSubscription?.cancel();
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best, // නිරවද්‍යතාවය උපරිම කිරීම
+        distanceFilter: 0, // සෑම මීටරයකටම යාවත්කාලීන කිරීම
         accuracy: LocationAccuracy.best,
         distanceFilter: 0,
       ),
