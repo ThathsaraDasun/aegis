@@ -78,8 +78,6 @@ class _CompassScreenState extends State<CompassScreen> {
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.best, // නිරවද්‍යතාවය උපරිම කිරීම
         distanceFilter: 0, // සෑම මීටරයකටම යාවත්කාලීන කිරීම
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 0,
       ),
     ).listen((position) {
       if (mounted) {

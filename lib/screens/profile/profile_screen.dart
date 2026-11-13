@@ -6,7 +6,7 @@ import '../../models/user_model.dart';
 import '../../theme/aegis_theme.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
-const bool _useDummyData = true;
+const bool _useDummyData = false;
 
 /// A screen that displays the user's profile and safety-critical medical information.
 /// 
@@ -91,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildProfileContent(BuildContext context, UserModel user, String email) {
     final String initials = user.name.isNotEmpty
-        ? user.name.trim().split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        ? user.name.trim().split(RegExp(r'\s+')).map((e) => e[0]).take(2).join().toUpperCase()
         : '?';
 
     return SingleChildScrollView(
