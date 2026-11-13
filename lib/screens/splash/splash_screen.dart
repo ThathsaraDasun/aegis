@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../theme/aegis_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget nextScreen;
@@ -46,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A3A5C),
+      backgroundColor: AegisColors.background,
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
@@ -83,10 +84,10 @@ class _SplashScreenState extends State<SplashScreen>
           padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Text(
             letters[i],
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 42,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              color: AegisColors.textPrimary,
               letterSpacing: 4,
             ),
           ),

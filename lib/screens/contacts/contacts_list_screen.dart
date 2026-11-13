@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/contact_model.dart';
 import '../../services/contacts_service.dart';
 import '../../theme/aegis_theme.dart';
+import '../../widgets/contact_card.dart'; // Import the new widget
 import 'add_edit_contact_screen.dart';
 
 class TrustedContactsListScreen extends StatefulWidget {
@@ -176,99 +177,14 @@ class _TrustedContactsListScreenState extends State<TrustedContactsListScreen> {
                     separatorBuilder: (context, index) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final contact = contacts[index];
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AegisColors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                const CircleAvatar(
-                                  radius: 26,
-                                  backgroundColor: AegisColors.primaryContainer,
-                                  child: Icon(Icons.face, color: Colors.white, size: 30),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            "${contact.name} (${contact.relation})",
-                                            style: GoogleFonts.outfit(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: AegisColors.textPrimary,
-                                            ),
-                                          ),
-                                          if (contact.isPrimary) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: AegisColors.tertiaryContainer,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                "PRIMARY",
-                                                style: GoogleFonts.outfit(
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AegisColors.tertiary,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      Text(
-                                        "${contact.phone} • ${contact.relation}",
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 12,
-                                          color: AegisColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AegisColors.primary),
-                                  onPressed: () {
-                                    if (uid.isNotEmpty) {
-                                      _contactsService.deleteContact(uid, contact.id);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                            const Divider(color: AegisColors.surfaceContainerHighest, height: 24),
-                            SwitchListTile(
-                              title: Text(
-                                "Instant SOS Auto-Dial",
-                                style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textPrimary),
-                              ),
-                              value: _autoDialMom,
-                              activeThumbColor: AegisColors.primary,
-                              onChanged: (val) => setState(() => _autoDialMom = val),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            SwitchListTile(
-                              title: Text(
-                                "Ambient Audio Stream",
-                                style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textPrimary),
-                              ),
-                              value: _audioStreamMom,
-                              activeThumbColor: AegisColors.primary,
-                              onChanged: (val) => setState(() => _audioStreamMom = val),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ],
-                        ),
+                      return ContactCard(
+                        contact: contact,
+                        actionIcon: Icons.delete_outline,
+                        onActionTap: () {
+                          if (uid.isNotEmpty) {
+                            _contactsService.deleteContact(uid, contact.id);
+                          }
+                        },
                       );
                     },
                   ),
