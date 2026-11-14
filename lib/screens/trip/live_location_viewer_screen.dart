@@ -155,7 +155,7 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
 
   Widget _buildTripEndedOverlay() {
     return Container(
-      color: Colors.black.withOpacity(0.7),
+      color: Colors.black.withValues(alpha: 0.7),
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(32.0),

@@ -14,7 +14,7 @@ enum LocationStatus {
 class LocationService {
   final FirestoreService _firestoreService = FirestoreService();
 
-  /// Expose a single Stream<Position> live location updates
+  /// Expose a single `Stream<Position>` live location updates
   /// Sensible accuracy/distanceFilter settings suited to walking speed (~1.4 m/s)
   Stream<Position> livePositionStream() {
     const LocationSettings locationSettings = LocationSettings(

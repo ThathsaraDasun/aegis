@@ -42,12 +42,18 @@ dependencies:
   geolocator: ^13.0.2
   google_maps_flutter: ^2.9.0
 
+  # Safe Route maps (Member 3) – OpenStreetMap tiles, no API key needed
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+
   # Utilities
+  shared_preferences: ^2.3.5
   url_launcher: ^6.3.0
   flutter_local_notifications: ^18.0.1
   google_fonts: ^6.2.1
   intl: ^0.19.0
   uuid: ^4.5.1
+  rxdart: ^0.28.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -63,6 +69,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -76,7 +84,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
+  assets:
+    - assets/icon/app_icon.png
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 
@@ -105,3 +114,15 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+
+flutter_native_splash:
+    color: "#1A3A5C"
+    image: assets/splash/splash_logo.png
+    android_12:
+      image: assets/splash/splash_logo.png
+      color: "#1A3A5C"

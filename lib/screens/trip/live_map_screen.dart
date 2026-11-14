@@ -230,7 +230,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AegisColors.surfaceContainerHigh.withOpacity(0.95),
+        color: AegisColors.surfaceContainerHigh.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
       ),

@@ -1,168 +1,262 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../models/contact_model.dart';
 import '../../services/contacts_service.dart';
 import '../../theme/aegis_theme.dart';
+import '../../widgets/aegis_empty_state.dart';
 
+/// Add a new trusted contact, or edit / remove an existing one.
 class AddEditContactScreen extends StatefulWidget {
-  const AddEditContactScreen({super.key});
+  /// Pass an existing contact to edit it; null to add a new one.
+  final ContactModel? contact;
+
+  const AddEditContactScreen({super.key, this.contact});
 
   @override
   State<AddEditContactScreen> createState() => _AddEditContactScreenState();
 }
 
 class _AddEditContactScreenState extends State<AddEditContactScreen> {
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _relationController = TextEditingController();
-  final _allergiesController = TextEditingController();
-  final _emergencyNoteController = TextEditingController();
-  String _bloodType = "O+";
-  bool _isPrimaryGuardian = true;
-  bool _isLoading = false;
+  static const _relations = ['Mother', 'Father', 'Spouse', 'Sibling', 'Friend', 'Partner', 'Colleague'];
+
+  final _formKey = GlobalKey<FormState>();
   final ContactsService _contactsService = ContactsService();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _relationController;
+  late bool _isPrimary;
+  bool _isSaving = false;
 
-  Future<void> _saveContactAndMedicalProfile() async {
-    final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
-    final relation = _relationController.text.trim();
+  bool get _isEditing => widget.contact != null;
 
-    if (name.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter full name and phone number.")),
-      );
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.contact;
+    _nameController = TextEditingController(text: c?.name ?? '');
+    _phoneController = TextEditingController(text: c?.phone ?? '');
+    _relationController = TextEditingController(text: c?.relation ?? '');
+    _isPrimary = c?.isPrimary ?? true;
+    _relationController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _relationController.dispose();
+    super.dispose();
+  }
+
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_uid.isEmpty) {
+      _snack('Sign in to save guardians.');
       return;
     }
+    FocusScope.of(context).unfocus();
+    setState(() => _isSaving = true);
 
-    setState(() => _isLoading = true);
+    final contact = ContactModel(
+      id: widget.contact?.id ?? '',
+      name: _nameController.text.trim().replaceAll(RegExp(r'\s+'), ' '),
+      phone: ContactsService.normalizePhone(_phoneController.text),
+      relation: _relationController.text.trim().isEmpty ? 'Contact' : _relationController.text.trim(),
+      isPrimary: _isPrimary,
+    );
 
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      if (uid.isNotEmpty) {
-        final newContact = ContactModel(
-          id: '',
-          name: name,
-          phone: phone,
-          relation: relation.isNotEmpty ? relation : 'Contact',
-          bloodType: _bloodType,
-          isPrimary: _isPrimaryGuardian,
-        );
-
-        await _contactsService.addContact(uid, newContact);
-
-        await _contactsService.updateMedicalProfile(
-          uid,
-          bloodType: _bloodType,
-          allergies: _allergiesController.text.trim(),
-          emergencyNote: _emergencyNoteController.text.trim(),
-        );
+      if (_isEditing) {
+        await _contactsService.updateContact(_uid, contact);
+      } else {
+        await _contactsService.addContact(_uid, contact);
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Guardian and Medical Profile Saved!")),
-        );
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+      _snack(_isEditing ? '${contact.name} updated' : '${contact.name} added as a guardian');
+      Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving contact: $e")),
-        );
-      }
+      _snack('Could not save contact: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  Future<void> _delete() async {
+    final c = widget.contact;
+    if (c == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove guardian?'),
+        content: Text('${c.name} will no longer receive your SOS alerts.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: AegisColors.textSecondary)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AegisColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _isSaving = true);
+    try {
+      await _contactsService.deleteContact(_uid, c.id);
+      if (!mounted) return;
+      _snack('${c.name} removed');
+      Navigator.pop(context, true);
+    } catch (e) {
+      _snack('Could not remove contact: $e');
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AegisColors.background,
       appBar: AppBar(
-        title: Text("Add Guardian & Medical Info", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text(_isEditing ? 'Edit Guardian' : 'Add Guardian'),
+        actions: [
+          if (_isEditing)
+            IconButton(
+              tooltip: 'Remove',
+              icon: const Icon(Icons.delete_outline, color: AegisColors.danger),
+              onPressed: _isSaving ? null : _delete,
+            ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Guardian Contact Details", style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Full Name (e.g. Elena Vance)", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Phone Number (+1 555-019-2834)", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _relationController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Relationship (e.g. Mother, Spouse, Doctor)", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: Text("Set as Primary Tier 1 Guardian", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.white)),
-              subtitle: Text("Primary guardians receive immediate phone call & live video stream during SOS.", style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
-              value: _isPrimaryGuardian,
-              activeThumbColor: AegisColors.primary,
-              onChanged: (val) => setState(() => _isPrimaryGuardian = val),
-            ),
-            const SizedBox(height: 24),
-            Text("Medical Info Profile (Optional)", style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _bloodType,
-              dropdownColor: AegisColors.surfaceContainerHigh,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Blood Type", border: OutlineInputBorder()),
-              items: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
-                  .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                  .toList(),
-              onChanged: (val) => setState(() => _bloodType = val!),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _allergiesController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Allergies / Conditions (e.g. Penicillin, Asthma)", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _emergencyNoteController,
-              maxLines: 3,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Emergency Note for Responders", border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : _saveContactAndMedicalProfile,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save, color: Colors.white),
-                label: Text("SAVE GUARDIAN & MEDICAL PROFILE", style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold)),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(AegisSpacing.xl),
+            children: [
+              Center(child: _AvatarPreview(name: _nameController.text)),
+              const SizedBox(height: AegisSpacing.xl),
+              const AegisSectionHeader('Contact details'),
+              TextFormField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Full name',
+                  hintText: 'e.g. Nimali Perera',
+                  prefixIcon: Icon(Icons.person_outline),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().length < 2) ? 'Enter the contact\'s name' : null,
               ),
-            ),
-          ],
+              const SizedBox(height: AegisSpacing.lg),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Phone number',
+                  hintText: '+94 77 123 4567',
+                  helperText: 'Local numbers (07…) are saved as +94',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                ),
+                validator: ContactsService.validatePhone,
+              ),
+              const SizedBox(height: AegisSpacing.lg),
+              TextFormField(
+                controller: _relationController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Relationship',
+                  hintText: 'Pick below or type your own',
+                  prefixIcon: Icon(Icons.people_outline),
+                ),
+              ),
+              const SizedBox(height: AegisSpacing.md),
+              Wrap(
+                spacing: AegisSpacing.sm,
+                runSpacing: AegisSpacing.sm,
+                children: _relations
+                    .map((r) => ChoiceChip(
+                          label: Text(r),
+                          selected: _relationController.text.trim() == r,
+                          onSelected: (_) => _relationController.text = r,
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: AegisSpacing.xl),
+              Container(
+                decoration: BoxDecoration(
+                  color: AegisColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(AegisRadius.lg),
+                  border: Border.all(
+                    color: _isPrimary
+                        ? AegisColors.primary.withValues(alpha: 0.6)
+                        : AegisColors.surfaceContainerHighest,
+                  ),
+                ),
+                child: SwitchListTile(
+                  value: _isPrimary,
+                  onChanged: (v) => setState(() => _isPrimary = v),
+                  secondary: Icon(Icons.star_rounded,
+                      color: _isPrimary ? AegisColors.primary : AegisColors.textSecondary),
+                  title: Text('Primary guardian',
+                      style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
+                  subtitle: Text('Alerted first with your live location during an SOS.',
+                      style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
+                ),
+              ),
+              const SizedBox(height: AegisSpacing.xxl),
+              SizedBox(
+                height: 52,
+                child: FilledButton.icon(
+                  onPressed: _isSaving ? null : _save,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Icon(_isEditing ? Icons.check : Icons.person_add_alt_1),
+                  label: Text(_isEditing ? 'Save changes' : 'Add guardian'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _AvatarPreview extends StatelessWidget {
+  final String name;
+  const _AvatarPreview({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final initials = parts.isEmpty ? '' : parts.take(2).map((p) => p[0]).join().toUpperCase();
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: AegisColors.primary.withValues(alpha: 0.2),
+      child: initials.isEmpty
+          ? const Icon(Icons.person_add_alt_1, color: AegisColors.primary, size: 32)
+          : Text(initials,
+              style: GoogleFonts.outfit(
+                  fontSize: 28, fontWeight: FontWeight.bold, color: AegisColors.primary)),
     );
   }
 }
