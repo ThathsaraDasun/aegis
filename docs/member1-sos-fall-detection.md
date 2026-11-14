@@ -4,11 +4,10 @@ Branch: `feature/sos-fall-detection`.
 
 ## Integration and ownership
 
-This feature branch contains a local merge of Member 4's PR #15 at `7051f81`.
-Their original commits and authorship are retained. This does not merge PR #15
-into main or publish anything to Firebase. Authentication/profile setup is
-preserved. The user's existing local Gradle configuration is not part of this
-feature's changes.
+The SOS implementation is saved in commit 5dfe583. Latest main (687f351,
+including Member 4 backend and Member 2 location/maps PR #16) is merged into
+this branch. Team commit authorship is retained. No Firebase rules were deployed.
+Temporary files and local configuration are excluded from the SOS commit.
 
 Member 1 implementation:
 
@@ -25,8 +24,10 @@ Backend integration corrections: missing profile service import, mismatched
 contact decoder arguments, the old trip-mock test signature, and an unused
 import. The obsolete dummy dashboard and message-only SOS/check-in actions were
 replaced with actual safety controls. Route comparison, contacts, profile,
-activity, compass and history remain reachable. Trip start/map integration remains
-Member 2's separate work; no dummy live-sharing claims remain on this dashboard.
+activity, compass and history remain reachable. The Safety dashboard now has a Start live trip button opening Member 2's
+StartTripScreen and LiveMapScreen inside the safety navigator. Global SOS and
+fall countdown overlays remain available over trip screens. No dummy live-sharing
+claims remain on the Safety dashboard.
 
 ## Behavior
 
@@ -144,3 +145,13 @@ Member 6 should record build/commit, phone model and Android version for:
 Only use contacts who agreed to the test. Do not use the seed service's example
 numbers for real dispatch. Background protection, unattended delivery, automatic
 arrival detection and recipient acknowledgements remain future integration work.
+
+## Latest-main integration phone check
+
+On the Safety tab, use Start live trip to open the destination screen and then
+start a trip. Confirm Real SOS remains visible over the live map. The trip module
+still uses sample destination coordinates and foreground-only tracking; guardian
+viewing requires a separate sharing/rules implementation. Maps needs the local
+`android/secrets.properties` key documented in docs/maps-key-setup.md.
+
+Post-merge validation: 44 tests passed across SOS, authentication, backend alerts, routes, widgets and location model integration. Flutter analysis reported no issues. Phone testing remains pending.

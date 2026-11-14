@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../trip/start_trip_screen.dart';
 import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
 import '../../services/safety/sos_gateway.dart';
@@ -303,8 +304,16 @@ class SafetyDashboard extends StatelessWidget {
           'Real SOS saves an alert and opens an SMS composer or phone dialer. This version cannot send messages unattended.',
         ),
         const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const StartTripScreen())),
+          icon: const Icon(Icons.directions_walk),
+          label: const Text('Start live trip'),
+        ),
+        const SizedBox(height: 12),
         const Text(
-          'Trip tracking is a separate module awaiting integration. Turning on fall monitoring does not share your location.',
+          'Start a trip to open live tracking. Fall monitoring and trip tracking are separate controls.',
         ),
       ],
     );
