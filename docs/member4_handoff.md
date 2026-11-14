@@ -3,6 +3,30 @@
 **Role:** Member 4 — Backend & Alerts Engineer  
 **Branch:** `feature/backend-alerts`
 
+## PR integration corrections (14 November 2026)
+
+Current main/authentication is merged into this branch. Both sets of imports are
+retained; Firebase initialization errors keep the auth failure screen, while
+optional local-notification initialization errors do not block login.
+
+- Fixed the profile service import, contact decoder argument order and old trip
+  mock test signature.
+- SOS rejects fallback/stale/inaccurate locations, checks authentication, prevents
+  overlapping requests and retains an event ID on retry.
+- Composer/dialer opening is not remote delivery. Ignore references below to
+  sending automatically: the user must tap Send or initiate the call. Countdown
+  and sensor implementation remain in Member 1's separate SOS branch.
+- Removed the undeployed live-viewer URL and excluded seeded demo contacts from
+  real dispatch. Location links now show the coordinates at alert time.
+- Local rules restrict trip/alert access to owners and remove the recursive
+  signed-in-user wildcard. Authorized guardian sharing still needs a separate
+  design. No Firebase rules/indexes are deployed by updating this PR.
+- `test/alert_service_test.dart` covers stable IDs, delivery wording, demo-contact
+  exclusion, failed writes, dialer fallback, notification failure and invalid
+  inputs. Device delivery and rules-emulator checks remain pending.
+- Validation: 24 backend/authentication/route/widget tests passed in a single
+  combined run. No test sent an actual SMS or deployed Firebase configuration.
+
 ---
 
 ## 1. Team Integration Guide & Method Allocation

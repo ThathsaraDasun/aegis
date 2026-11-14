@@ -1,20 +1,17 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../models/alert_model.dart';
 import '../models/contact_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
 
-/// Result object returned by [AlertService.triggerAlert].
 class AlertTriggerResult {
   final String alertId;
   final int contactCount;
   final bool smsOpened;
   final bool dialerOpened;
-
   const AlertTriggerResult({
     required this.alertId,
     required this.contactCount,
@@ -23,145 +20,147 @@ class AlertTriggerResult {
   });
 }
 
-/// Service responsible for handling emergency SOS alerts and fall detection dispatches.
-/// 
-/// Integrates [FirestoreService] for database creation, [FlutterLocalNotificationsPlugin]
-/// for local user notifications, and [url_launcher] for dispatching SMS alerts and dialer fallbacks.
+/// Member 4's public API, hardened for Member 1's foreground SOS integration.
+/// An opened composer/dialer is never treated as confirmed remote delivery.
 class AlertService {
   final FirestoreService _firestoreService;
   final FlutterLocalNotificationsPlugin _localNotifications;
-
-  /// Configurable static base URL for live trip tracking links.
-  static String liveViewerBaseUrl = 'https://safewalk.app/trip/';
-
-  /// Singleton instance of [AlertService].
+  final Future<bool> Function(Uri) _launch;
+  final String? Function() _currentUserId;
+  final Future<void> Function(String, String)? _notificationOverride;
   static final AlertService instance = AlertService();
 
-  /// Creates an [AlertService] instance, optionally receiving custom dependency instances.
   AlertService({
     FirestoreService? firestoreService,
     FlutterLocalNotificationsPlugin? localNotifications,
-  })  : _firestoreService = firestoreService ?? FirestoreService.instance,
-        _localNotifications = localNotifications ?? FlutterLocalNotificationsPlugin();
+    Future<bool> Function(Uri)? launchExternal,
+    String? Function()? currentUserId,
+    Future<void> Function(String, String)? showNotification,
+  }) : _firestoreService = firestoreService ?? FirestoreService.instance,
+       _localNotifications =
+           localNotifications ?? FlutterLocalNotificationsPlugin(),
+       _launch =
+           launchExternal ??
+           ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication)),
+       _currentUserId =
+           currentUserId ?? (() => FirebaseAuth.instance.currentUser?.uid),
+       _notificationOverride = showNotification;
 
-  /// Initializes local notifications and requests notification permissions (Android 13+).
-  /// Must be called from `main()` after `Firebase.initializeApp()`.
   Future<void> init() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
-
-    await _localNotifications.initialize(initSettings);
-
-    // Request Android 13+ notification permissions
-    final androidImplementation = _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (androidImplementation != null) {
-      await androidImplementation.requestNotificationsPermission();
-    }
+    await _localNotifications.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
   }
 
-  /// Triggers an emergency alert (manual SOS or fall detected).
-  /// 
-  /// 1. Fetches user profile and emergency contacts via [FirestoreService].
-  /// 2. Creates the alert document in Firestore.
-  /// 3. Marks the trip as alerted if [tripId] is provided.
-  /// 4. Shows a local notification summarizing the dispatch.
-  /// 5. Opens SMS composer with location and medical details to all trusted contacts.
-  /// 6. Falls back to calling the primary guardian via dialer if SMS fails.
   Future<AlertTriggerResult> triggerAlert({
     required String userId,
     required String type,
     required double lat,
     required double lng,
     String? tripId,
+    String? requestId,
   }) async {
-    // 1. Fetch User Profile and Emergency Contacts
-    UserModel? user;
-    List<ContactModel> contacts = [];
-    try {
-      user = await _firestoreService.getUserProfile(userId);
-      contacts = await _firestoreService.getContacts(userId);
-    } catch (e) {
-      debugPrint('AlertService: Error fetching profile/contacts: $e');
+    _checkUser(userId);
+    if (!AlertType.all.contains(type) ||
+        !lat.isFinite ||
+        !lng.isFinite ||
+        lat.abs() > 90 ||
+        lng.abs() > 180) {
+      throw ArgumentError('Invalid alert type or coordinates');
     }
-
-    // 2. Create Alert Document in Firestore
-    final alert = AlertModel(
-      alertId: '',
-      tripId: tripId ?? '',
-      userId: userId,
-      type: type,
-      location: {'lat': lat, 'lng': lng},
-      triggeredAt: DateTime.now(),
-      resolved: false,
-    );
-    final alertId = await _firestoreService.createAlert(alert);
-
-    // 3. Mark active trip as alerted if tripId is provided
+    // Fail visibly on denied/network reads; do not silently treat an error as no contacts.
+    final user = await _firestoreService
+        .getUserProfile(userId)
+        .timeout(const Duration(seconds: 8));
+    final contacts =
+        (await _firestoreService
+                .getContacts(userId)
+                .timeout(const Duration(seconds: 8)))
+            .where((c) => !c.id.startsWith('demo_') && _phone(c).isNotEmpty)
+            .toList();
+    final phones = contacts.map(_phone).toSet().toList();
+    _checkUser(userId);
+    final alertId = await _firestoreService
+        .createAlert(
+          AlertModel(
+            alertId: requestId ?? '',
+            tripId: tripId ?? '',
+            userId: userId,
+            type: type,
+            location: {'lat': lat, 'lng': lng},
+            triggeredAt: DateTime.now(),
+          ),
+        )
+        .timeout(const Duration(seconds: 10));
     if (tripId != null && tripId.isNotEmpty) {
       try {
-        await _firestoreService.markTripAlerted(tripId);
-      } catch (e) {
-        debugPrint('AlertService: Error marking trip as alerted: $e');
+        await _firestoreService
+            .markTripAlerted(tripId)
+            .timeout(const Duration(seconds: 3));
+      } catch (_) {
+        /* The alert remains usable even if the optional trip update fails. */
       }
     }
-
-    // 4. Trigger Local Push Notification
-    final bool isFall = (type == AlertType.fallDetected);
-    final String notifTitle = isFall ? 'Fall Alert Dispatched!' : 'SOS Emergency Alert Dispatched!';
-    final String notifBody = contacts.isNotEmpty
-        ? 'Alert sent to ${contacts.length} trusted guardian(s).'
-        : 'Alert recorded! No emergency contacts saved in your profile.';
-    
-    await _showLocalNotification(title: notifTitle, body: notifBody);
-
-    // 5. Compose Emergency SMS Message
-    final message = buildMessage(
-      user: user,
-      type: type,
-      lat: lat,
-      lng: lng,
-      tripId: tripId,
-    );
-
+    _checkUser(userId);
     bool smsOpened = false;
     bool dialerOpened = false;
-
-    // 6. Launch SMS Composer if contacts exist
-    if (contacts.isNotEmpty) {
-      final phoneNumbers = contacts.map((c) => c.phone).where((p) => p.isNotEmpty).join(',');
-      if (phoneNumbers.isNotEmpty) {
-        final smsUri = Uri.parse('sms:$phoneNumbers?body=${Uri.encodeComponent(message)}');
+    if (phones.isNotEmpty) {
+      final message = buildMessage(
+        user: user,
+        type: type,
+        lat: lat,
+        lng: lng,
+        tripId: tripId,
+      );
+      try {
+        smsOpened = await _launch(
+          Uri.parse(
+            'sms:${phones.join(',')}?body=${Uri.encodeComponent(message)}',
+          ),
+        );
+      } catch (_) {}
+      if (!smsOpened && _currentUserId() == userId) {
         try {
-          smsOpened = await launchUrl(smsUri, mode: LaunchMode.externalApplication);
-        } catch (e) {
-          debugPrint('AlertService: Could not launch SMS composer: $e');
-          smsOpened = false;
-        }
-      }
-
-      // 7. Fallback to Dialer if SMS fails
-      if (!smsOpened && contacts.first.phone.isNotEmpty) {
-        final telUri = Uri.parse('tel:${contacts.first.phone}');
-        try {
-          dialerOpened = await launchUrl(telUri, mode: LaunchMode.externalApplication);
-        } catch (e) {
-          debugPrint('AlertService: Could not launch phone dialer fallback: $e');
-          dialerOpened = false;
-        }
+          dialerOpened = await _launch(Uri.parse('tel:${phones.first}'));
+        } catch (_) {}
       }
     }
-
+    await _showLocalNotification(
+      title: 'Safety alert recorded',
+      body: phones.isEmpty
+          ? 'No usable guardian contacts. Nobody was contacted.'
+          : smsOpened
+          ? 'SMS composer opened. Tap Send in your messaging app.'
+          : dialerOpened
+          ? 'Phone dialer opened. Start the call to reach your guardian.'
+          : 'Contact options could not open. Reach your guardian directly.',
+    );
     return AlertTriggerResult(
       alertId: alertId,
-      contactCount: contacts.length,
+      contactCount: phones.length,
       smsOpened: smsOpened,
       dialerOpened: dialerOpened,
     );
   }
 
-  /// Builds a formatted emergency text message containing user identity, reason,
-  /// Google Maps coordinates, live tracking link, and medical emergency details.
+  void _checkUser(String uid) {
+    if (uid.isEmpty || _currentUserId() != uid) {
+      throw FirebaseAuthException(code: 'user-token-expired');
+    }
+  }
+
+  static String _phone(ContactModel contact) {
+    final phone = contact.phone.replaceAll(RegExp(r'[\s()-]'), '');
+    return RegExp(r'^\+?[0-9]{7,15}$').hasMatch(phone) ? phone : '';
+  }
+
   String buildMessage({
     UserModel? user,
     required String type,
@@ -169,32 +168,30 @@ class AlertService {
     required double lng,
     String? tripId,
   }) {
-    final name = (user != null && user.name.isNotEmpty) ? user.name : 'Aegis User';
-    final reason = (type == AlertType.fallDetected)
-        ? 'EMERGENCY: Fall detected and user is unresponsive!'
-        : 'EMERGENCY: Panic SOS button pressed!';
-
-    final buffer = StringBuffer();
-    buffer.writeln('🚨 SAFE WALK ALERT 🚨');
-    buffer.writeln('$reason');
-    buffer.writeln('User: $name');
-    buffer.writeln('Location: https://maps.google.com/?q=$lat,$lng');
-
-    if (tripId != null && tripId.isNotEmpty) {
-      buffer.writeln('Live Track: $liveViewerBaseUrl$tripId');
-    }
-
+    final buffer = StringBuffer('SAFE WALK ALERT\n');
+    buffer.writeln(
+      type == AlertType.fallDetected
+          ? 'Possible fall detected; the in-app countdown was not cancelled.'
+          : 'Manual SOS activated. Please contact me.',
+    );
+    buffer.writeln(
+      'User: ${user?.name.isNotEmpty == true ? user!.name : 'Aegis User'}',
+    );
+    buffer.writeln(
+      'Location at alert time: https://maps.google.com/?q=$lat,$lng',
+    );
+    // Do not advertise a live viewer until a real authorized viewer is deployed.
     if (user != null) {
-      final medInfo = <String>[];
-      if (user.bloodType.isNotEmpty) medInfo.add('Blood: ${user.bloodType}');
-      if (user.allergies.isNotEmpty) medInfo.add('Allergies: ${user.allergies}');
-      if (user.emergencyNote.isNotEmpty) medInfo.add('Note: ${user.emergencyNote}');
-
-      if (medInfo.isNotEmpty) {
-        buffer.writeln('Medical Info: ${medInfo.join(' | ')}');
+      if (user.bloodType.isNotEmpty) {
+        buffer.writeln('Blood type: ${user.bloodType}');
+      }
+      if (user.allergies.isNotEmpty) {
+        buffer.writeln('Allergies: ${user.allergies}');
+      }
+      if (user.emergencyNote.isNotEmpty) {
+        buffer.writeln('Note: ${user.emergencyNote}');
       }
     }
-
     return buffer.toString().trim();
   }
 
@@ -202,19 +199,26 @@ class AlertService {
     required String title,
     required String body,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'aegis_sos_channel',
-      'Emergency SOS Alerts',
-      channelDescription: 'Notifications for emergency SOS alerts and fall detection',
-      importance: Importance.max,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-    );
-    const details = NotificationDetails(android: androidDetails);
     try {
-      await _localNotifications.show(0, title, body, details);
-    } catch (e) {
-      debugPrint('AlertService: Error showing local notification: $e');
+      if (_notificationOverride != null) {
+        await _notificationOverride(title, body);
+        return;
+      }
+      await _localNotifications.show(
+        0,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'aegis_sos_channel',
+            'Safety alerts',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    } catch (_) {
+      /* Optional local notification must not undo the recorded alert. */
     }
   }
 }

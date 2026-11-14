@@ -44,5 +44,11 @@ Member 4 — Backend & Alerts Engineer API Reference.
 ## AlertService Methods (`lib/services/alert_service.dart`)
 
 - **`init()`**: Initializes local notification plugin and requests Android 13+ notification permissions.
-- **`triggerAlert({userId, type, lat, lng, tripId})`**: Dispatches an emergency SOS or fall alert (creates alert doc, marks trip alerted, sends local notification, opens SMS composer, falls back to phone dialer).
-- **`buildMessage({user, type, lat, lng, tripId})`**: Formats the emergency text payload with Google Maps link, live-track link, and medical details.
+- **`triggerAlert({userId, type, lat, lng, tripId, requestId})`**: Records an alert, optionally marks its trip alerted, opens an SMS composer or dialer, and shows a local notification. Optional `requestId` reuses a document ID on retry. Authentication must match `userId`.
+- **`buildMessage({user, type, lat, lng, tripId})`**: Formats a static Google Maps location and medical details. The unverified live-viewer URL has been removed.
+
+`smsOpened` and `dialerOpened` report opened apps, not message delivery or a
+connected call. `contactCount` counts unique usable phone numbers; contacts with
+`demo_` IDs are excluded. Profile/contact read failures are surfaced. Database
+failure prevents launching an external app. A local-notification failure is
+nonfatal. Automatic unattended delivery is not implemented.

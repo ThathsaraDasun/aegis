@@ -18,16 +18,33 @@ import 'models/trip_model.dart';
 import 'theme/aegis_theme.dart';
 import 'services/alert_service.dart';
 import 'services/firestore_service.dart';
-import 'services/route/position_helper.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:uuid/uuid.dart';
+import 'services/auth_service.dart';
+import 'screens/auth/auth_gate.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
-    await AlertService.instance.init();
   } catch (e) {
-    debugPrint('Initialization warning: $e');
+    runApp(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text(
+              'Unable to initialize Firebase. Check the app configuration and restart.',
+            ),
+          ),
+        ),
+      ),
+    );
+    return;
   }
+  // Notification permission failure must not block authentication.
+  try {
+    await AlertService.instance.init();
+  } catch (_) {}
   runApp(const AegisApp());
 }
 
@@ -40,202 +57,10 @@ class AegisApp extends StatelessWidget {
       title: 'Aegis - Safe Walk',
       debugShowCheckedModeBanner: false,
       theme: AegisTheme.dark(),
-      home: SplashScreen(nextScreen: const AuthWrapper()),
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: AegisColors.background,
-            body: Center(
-              child: CircularProgressIndicator(color: AegisColors.primary),
-            ),
-          );
-        }
-        if (snapshot.hasData) {
-          return const MainNavigationScreen();
-        }
-        return const LoginScreen();
-      },
-    );
-  }
-}
-
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'user@aegis.safe');
-  final _passwordController = TextEditingController(text: 'password123');
-  bool _isLoading = false;
-
-  Future<void> _handleLogin() async {
-    setState(() => _isLoading = true);
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-    } catch (e) {
-      if (mounted) {
-        // If login fails (e.g. mock environment), bypass to main dashboard for demo
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  void _enterDemoMode() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AegisColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Center(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AegisColors.surfaceContainerHigh,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AegisColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.shield_outlined,
-                      size: 64,
-                      color: AegisColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'AEGIS SAFE WALK',
-                    style: GoogleFonts.outfit(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: AegisColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Smart Safety & Guardian Network',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: AegisColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                  TextField(
-                    controller: _emailController,
-                    style: GoogleFonts.outfit(color: AegisColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Email Address',
-                      labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
-                      prefixIcon: const Icon(Icons.email_outlined, color: AegisColors.textSecondary),
-                      filled: true,
-                      fillColor: AegisColors.surfaceContainerHigh,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    style: GoogleFonts.outfit(color: AegisColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
-                      prefixIcon: const Icon(Icons.lock_outline, color: AegisColors.textSecondary),
-                      filled: true,
-                      fillColor: AegisColors.surfaceContainerHigh,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AegisColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              'Sign In',
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton(
-                    onPressed: _enterDemoMode,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AegisColors.primary, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                    ),
-                    child: Text(
-                      'Explore App Demo Features',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AegisColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+      home: SplashScreen(
+        nextScreen: AuthGate(
+          service: FirebaseAuthService(),
+          signedInBuilder: (_) => const MainNavigationScreen(),
         ),
       ),
     );
@@ -264,15 +89,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AegisColors.background,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AegisColors.surfaceContainerLow,
           border: Border(
-            top: BorderSide(color: AegisColors.surfaceContainerHighest, width: 1),
+            top: BorderSide(
+              color: AegisColors.surfaceContainerHighest,
+              width: 1,
+            ),
           ),
         ),
         child: BottomNavigationBar(
@@ -281,7 +106,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           backgroundColor: AegisColors.surfaceContainerLow,
           selectedItemColor: AegisColors.primary,
           unselectedItemColor: AegisColors.textSecondary,
-          selectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12),
+          selectedLabelStyle: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
           unselectedLabelStyle: GoogleFonts.outfit(fontSize: 12),
           type: BottomNavigationBarType.fixed,
           items: const [
@@ -321,7 +149,8 @@ class ActiveWalkDashboardScreen extends StatefulWidget {
   const ActiveWalkDashboardScreen({super.key});
 
   @override
-  State<ActiveWalkDashboardScreen> createState() => _ActiveWalkDashboardScreenState();
+  State<ActiveWalkDashboardScreen> createState() =>
+      _ActiveWalkDashboardScreenState();
 }
 
 class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
@@ -335,47 +164,103 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: GoogleFonts.outfit()),
-        backgroundColor: _isTripActive ? AegisColors.tertiary : AegisColors.primary,
+        backgroundColor: _isTripActive
+            ? AegisColors.tertiary
+            : AegisColors.primary,
       ),
     );
   }
 
+  bool _sendingAlert = false;
+  String? _pendingAlertId;
+  String? _pendingType;
+
   Future<void> _triggerAlertHelper(String type) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final userId = user?.uid ?? 'demo_user';
+    if (_sendingAlert) return;
+    setState(() => _sendingAlert = true);
+    void message(String text) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(text)));
+      }
+    }
 
-    final posResult = await PositionHelper.current(requestPermission: true);
-    final lat = posResult.position.latitude;
-    final lng = posResult.position.longitude;
-
-    String? tripId;
     try {
-      final activeTrip = await FirestoreService.instance.streamActiveTrip(userId).first;
-      tripId = activeTrip?.tripId;
-    } catch (_) {}
-
-    final result = await AlertService.instance.triggerAlert(
-      userId: userId,
-      type: type,
-      lat: lat,
-      lng: lng,
-      tripId: tripId,
-    );
-
-    if (mounted) {
-      final isFall = (type == AlertType.fallDetected);
-      final label = isFall ? 'Fall Alert' : 'Panic SOS';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.smsOpened
-                ? '$label Triggered! SMS sent to ${result.contactCount} contact(s).'
-                : '$label Triggered! Alert recorded (ID: ${result.alertId}).',
-            style: GoogleFonts.outfit(),
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        message('Sign in before triggering SOS.');
+        return;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        message('Turn on location services before retrying SOS.');
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        message('Enable location permission in Settings before retrying SOS.');
+        return;
+      }
+      final Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
           ),
-          backgroundColor: AegisColors.secondary,
-        ),
+        );
+      } catch (_) {
+        message(
+          'A fresh GPS fix is unavailable. Please retry with a clear GPS signal.',
+        );
+        return;
+      }
+      if (DateTime.now().difference(position.timestamp).abs() >
+              const Duration(seconds: 30) ||
+          !position.accuracy.isFinite ||
+          position.accuracy > 100) {
+        message('GPS is too old or inaccurate for SOS. Please retry.');
+        return;
+      }
+      String? tripId;
+      try {
+        tripId =
+            (await FirestoreService.instance
+                    .streamActiveTrip(user.uid)
+                    .first
+                    .timeout(const Duration(seconds: 3)))
+                ?.tripId;
+      } catch (_) {}
+      if (_pendingType != type || _pendingAlertId == null) {
+        _pendingType = type;
+        _pendingAlertId = const Uuid().v4();
+      }
+      final result = await AlertService.instance.triggerAlert(
+        userId: user.uid,
+        type: type,
+        lat: position.latitude,
+        lng: position.longitude,
+        tripId: tripId,
+        requestId: _pendingAlertId,
       );
+      _pendingAlertId = null;
+      message(
+        result.smsOpened
+            ? 'Alert recorded. SMS composer opened; tap Send to send the message.'
+            : result.dialerOpened
+            ? 'Alert recorded. Phone dialer opened; start the call yourself.'
+            : result.contactCount == 0
+            ? 'Alert recorded, but no usable guardian contacts were found. Nobody was contacted.'
+            : 'Alert recorded, but contact apps could not open. Contact your guardian directly.',
+      );
+    } catch (e) {
+      message('SOS could not complete. ${authErrorMessage(e)}');
+    } finally {
+      if (mounted) setState(() => _sendingAlert = false);
     }
   }
 
@@ -384,28 +269,48 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AegisColors.surfaceContainerHigh,
-        title: Text('Aegis Silent Check-in', style: GoogleFonts.outfit(color: AegisColors.textPrimary, fontWeight: FontWeight.bold)),
-        content: Text('Are you safe? Confirming resets safety timer for your active guardians.', style: GoogleFonts.outfit(color: AegisColors.textSecondary)),
+        title: Text(
+          'Aegis Silent Check-in',
+          style: GoogleFonts.outfit(
+            color: AegisColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you safe? Confirming resets safety timer for your active guardians.',
+          style: GoogleFonts.outfit(color: AegisColors.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _triggerAlertHelper(AlertType.fallDetected);
             },
-            child: Text('Escalate SOS', style: GoogleFonts.outfit(color: AegisColors.secondary)),
+            child: Text(
+              'Escalate SOS',
+              style: GoogleFonts.outfit(color: AegisColors.secondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Silent Check-in Confirmed. Guardians updated.', style: GoogleFonts.outfit()),
+                  content: Text(
+                    'Check-in acknowledged on this device. No message was sent.',
+                    style: GoogleFonts.outfit(),
+                  ),
                   backgroundColor: AegisColors.tertiary,
                 ),
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AegisColors.tertiary),
-            child: Text('I am Safe', style: GoogleFonts.outfit(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AegisColors.tertiary,
+            ),
+            child: Text(
+              'I am Safe',
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -439,7 +344,10 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
     return Scaffold(
       backgroundColor: AegisColors.background,
       appBar: AppBar(
-        title: Text('Aegis Live Walk', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Aegis Live Walk',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_outline, color: AegisColors.primary),
@@ -453,11 +361,14 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: AegisColors.textSecondary),
             onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
+              try {
+                await FirebaseAuth.instance.signOut();
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(authErrorMessage(e))));
+                }
               }
             },
           ),
@@ -484,7 +395,9 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                 color: AegisColors.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: _isTripActive ? AegisColors.tertiary : AegisColors.surfaceContainerHighest,
+                  color: _isTripActive
+                      ? AegisColors.tertiary
+                      : AegisColors.surfaceContainerHighest,
                   width: 2,
                 ),
               ),
@@ -497,7 +410,9 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         height: 12,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _isTripActive ? AegisColors.tertiary : AegisColors.textSecondary,
+                          color: _isTripActive
+                              ? AegisColors.tertiary
+                              : AegisColors.textSecondary,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -506,14 +421,18 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
-                          color: _isTripActive ? AegisColors.tertiary : AegisColors.textSecondary,
+                          color: _isTripActive
+                              ? AegisColors.tertiary
+                              : AegisColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    _isTripActive ? 'Sharing GPS & ETA with Guardians' : 'Ready to Start Walk',
+                    _isTripActive
+                        ? 'Sharing GPS & ETA with Guardians'
+                        : 'Ready to Start Walk',
                     style: GoogleFonts.outfit(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -539,11 +458,18 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                       onPressed: _toggleWalk,
                       icon: Icon(_isTripActive ? Icons.stop : Icons.play_arrow),
                       label: Text(
-                        _isTripActive ? 'End Live Sharing' : 'Start Live Safe Walk',
-                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+                        _isTripActive
+                            ? 'End Live Sharing'
+                            : 'Start Live Safe Walk',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isTripActive ? AegisColors.secondary : AegisColors.primary,
+                        backgroundColor: _isTripActive
+                            ? AegisColors.secondary
+                            : AegisColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
@@ -568,7 +494,9 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
             TripCard(
               trip: dummyTrip,
               onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Trip history details coming soon!")),
+                const SnackBar(
+                  content: Text("Trip history details coming soon!"),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -589,7 +517,9 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const CompassScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const CompassScreen(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -598,21 +528,33 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AegisColors.primary.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AegisColors.primary.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.explore_outlined, color: AegisColors.primary, size: 28),
+                          const Icon(
+                            Icons.explore_outlined,
+                            color: AegisColors.primary,
+                            size: 28,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Find My Spot',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AegisColors.textPrimary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Open Compass',
-                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: AegisColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -633,16 +575,26 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.timer_outlined, color: AegisColors.tertiary, size: 28),
+                          const Icon(
+                            Icons.timer_outlined,
+                            color: AegisColors.tertiary,
+                            size: 28,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Silent Check-in',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AegisColors.textPrimary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Simulate prompt',
-                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: AegisColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -663,21 +615,33 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AegisColors.secondary.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: AegisColors.secondary.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.sos_rounded, color: AegisColors.secondary, size: 28),
+                          const Icon(
+                            Icons.sos_rounded,
+                            color: AegisColors.secondary,
+                            size: 28,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Panic SOS',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AegisColors.textPrimary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Broadcast emergency',
-                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: AegisColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -690,7 +654,9 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const TripHistoryScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const TripHistoryScreen(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -699,21 +665,33 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AegisColors.tertiary.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AegisColors.tertiary.withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.history_outlined, color: AegisColors.tertiary, size: 28),
+                          const Icon(
+                            Icons.history_outlined,
+                            color: AegisColors.tertiary,
+                            size: 28,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Trip History',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AegisColors.textPrimary,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             'Past walks',
-                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: AegisColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
