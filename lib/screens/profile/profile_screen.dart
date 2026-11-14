@@ -1,8 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
+import '../../services/seed_service.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
@@ -10,8 +12,7 @@ const bool _useDummyData = false;
 
 /// A screen that displays the user's profile and safety-critical medical information.
 /// 
-/// Streams user data live from the Firestore 'users' collection and provides
-/// quick access to edit profile and sign-out functionality.
+/// Streams user data live from the Firestore 'users' collection via [FirestoreService].
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -53,11 +54,8 @@ class ProfileScreen extends StatelessWidget {
       );
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .snapshots(),
+    return StreamBuilder<UserModel?>(
+      stream: FirestoreService.instance.streamUserProfile(firebaseUser.uid),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _ErrorOrEmptyState(
@@ -72,7 +70,9 @@ class ProfileScreen extends StatelessWidget {
           );
         }
 
-        if (!snapshot.hasData || !snapshot.data!.exists) {
+        final userModel = snapshot.data;
+
+        if (userModel == null) {
           return _ErrorOrEmptyState(
             message: 'User profile not found in database.',
             icon: Icons.person_search_outlined,
@@ -81,7 +81,6 @@ class ProfileScreen extends StatelessWidget {
           );
         }
 
-        final userModel = UserModel.fromFirestore(snapshot.data!);
         final email = firebaseUser.email ?? 'No email provided';
 
         return _buildProfileContent(context, userModel, email);
@@ -285,6 +284,52 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    await SeedService.instance.seedDemoData();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Demo data successfully seeded to Firestore!', style: GoogleFonts.inter()),
+                          backgroundColor: AegisColors.tertiary,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to seed demo data: $e', style: GoogleFonts.inter()),
+                          backgroundColor: AegisColors.secondary,
+                        ),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.dataset_linked_outlined, color: AegisColors.tertiary),
+                label: Text(
+                  'Seed Demo Data (Debug)',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AegisColors.tertiary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AegisColors.tertiary, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

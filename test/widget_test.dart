@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aegis/screens/auth/login_screen.dart';
 import 'auth_test.dart' show FakeAuthService;
-import 'package:aegis/core/models/trip_model.dart';
 import 'package:aegis/services/trip_service/trip_service_interface.dart';
 
 void main() {
@@ -18,12 +17,9 @@ void main() {
   test('MockTripService startTrip test', () async {
     final service = MockTripService();
     final tripId = await service.startTrip(
-      ownerId: 'user123',
-      destination: const Destination(
-        lat: 37.7749,
-        lng: -122.4194,
-        label: 'Home',
-      ),
+      userId: 'user123',
+      startLocation: const {'lat': 37.77, 'lng': -122.42},
+      destination: const {'lat': 37.7749, 'lng': -122.4194},
       contactIds: ['contact1'],
       routeChosen: 'Main St',
     );

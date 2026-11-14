@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:rxdart/rxdart.dart';
 import '../../models/alert_model.dart';
 import '../../models/trip_model.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
 import '../../widgets/alert_banner.dart';
 import '../../widgets/trip_card.dart';
@@ -48,30 +48,18 @@ class ActivityFeedScreen extends StatelessWidget {
       return const _EmptyState(message: "Please sign in to view your activity.");
     }
 
-    final tripsStream = FirebaseFirestore.instance
-        .collection('trips')
-        .where('userId', isEqualTo: user.uid)
-        .snapshots();
-
-    final alertsStream = FirebaseFirestore.instance
-        .collection('alerts')
-        .where('userId', isEqualTo: user.uid)
-        .snapshots();
+    final tripsStream = FirestoreService.instance.streamTripHistory(user.uid);
+    final alertsStream = FirestoreService.instance.streamAlerts(user.uid);
 
     return StreamBuilder<List<dynamic>>(
       stream: CombineLatestStream.combine2(
         tripsStream,
         alertsStream,
-        (QuerySnapshot tripsSnap, QuerySnapshot alertsSnap) {
-          // Convert Firestore docs to Model objects
-          final trips = tripsSnap.docs.map((d) => TripModel.fromFirestore(d)).toList();
-          final alerts = alertsSnap.docs.map((d) => AlertModel.fromFirestore(d)).toList();
-
+        (List<TripModel> trips, List<AlertModel> alerts) {
           // Merge into one list
-          final combined = [...trips, ...alerts];
+          final combined = <dynamic>[...trips, ...alerts];
 
           // Sort by timestamp descending (most recent first)
-          // Trip uses 'startedAt', Alert uses 'triggeredAt'
           combined.sort((a, b) {
             final dateA = (a is TripModel) ? a.startedAt : (a as AlertModel).triggeredAt;
             final dateB = (b is TripModel) ? b.startedAt : (b as AlertModel).triggeredAt;
