@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-extension TripLocationExt on Map<String, double> {
-  double get latitude => this['lat'] ?? 0.0;
-  double get longitude => this['lng'] ?? 0.0;
-  GeoPoint get geoPoint => GeoPoint(latitude, longitude);
+class TripStatus {
+  static const String active = 'active';
+  static const String completed = 'completed';
+  static const String alerted = 'alerted';
+
+  static const List<String> all = [active, completed, alerted];
 }
 
 class TripModel {
@@ -19,30 +21,15 @@ class TripModel {
   TripModel({
     required this.tripId,
     required this.userId,
-    this.status = 'active',
-    required dynamic startLocation,
-    required dynamic currentLocation,
-    required dynamic destination,
+    required this.status,
+    required this.startLocation,
+    required this.currentLocation,
+    required this.destination,
     required this.startedAt,
     this.endedAt,
-  })  : startLocation = _normalizeLocation(startLocation),
-        currentLocation = _normalizeLocation(currentLocation),
-        destination = _normalizeLocation(destination);
+  });
 
-  static Map<String, double> _normalizeLocation(dynamic loc) {
-    if (loc is GeoPoint) {
-      return {'lat': loc.latitude, 'lng': loc.longitude};
-    }
-    if (loc is Map) {
-      return {
-        'lat': (loc['lat'] as num?)?.toDouble() ?? 0.0,
-        'lng': (loc['lng'] as num?)?.toDouble() ?? 0.0,
-      };
-    }
-    return {'lat': 0.0, 'lng': 0.0};
-  }
-
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
       'tripId': tripId,
       'userId': userId,
@@ -50,22 +37,50 @@ class TripModel {
       'startLocation': startLocation,
       'currentLocation': currentLocation,
       'destination': destination,
-      'startedAt': startedAt,
-      'endedAt': endedAt,
+      'startedAt': Timestamp.fromDate(startedAt),
+      'endedAt': endedAt != null ? Timestamp.fromDate(endedAt!) : null,
     };
+  }
+
+  Map<String, dynamic> toFirestore() => toMap();
+
+  factory TripModel.fromMap(Map<String, dynamic> map, [String? docId]) {
+    return TripModel(
+      tripId: (map['tripId'] as String?) ?? docId ?? '',
+      userId: (map['userId'] as String?) ?? (map['ownerId'] as String?) ?? '',
+      status: (map['status'] as String?) ?? TripStatus.active,
+      startLocation: _parseLocationMap(map['startLocation']),
+      currentLocation: _parseLocationMap(map['currentLocation']),
+      destination: _parseLocationMap(map['destination']),
+      startedAt: _parseDate(map['startedAt'] ?? map['startTime']),
+      endedAt: map['endedAt'] != null || map['endTime'] != null
+          ? _parseDate(map['endedAt'] ?? map['endTime'])
+          : null,
+    );
   }
 
   factory TripModel.fromFirestore(DocumentSnapshot doc) {
     final data = (doc.data() as Map<String, dynamic>?) ?? {};
-    return TripModel(
-      tripId: doc.id.isNotEmpty ? doc.id : (data['tripId'] ?? ''),
-      userId: data['userId'] ?? '',
-      status: data['status'] ?? 'active',
-      startLocation: data['startLocation'],
-      currentLocation: data['currentLocation'],
-      destination: data['destination'],
-      startedAt: (data['startedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endedAt: (data['endedAt'] as Timestamp?)?.toDate(),
-    );
+    return TripModel.fromMap(data, doc.id);
+  }
+
+  static Map<String, double> _parseLocationMap(dynamic locData) {
+    if (locData is GeoPoint) {
+      return {'lat': locData.latitude, 'lng': locData.longitude};
+    }
+    if (locData is Map) {
+      return {
+        'lat': (locData['lat'] as num?)?.toDouble() ?? 0.0,
+        'lng': (locData['lng'] as num?)?.toDouble() ?? 0.0,
+      };
+    }
+    return {'lat': 0.0, 'lng': 0.0};
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 }

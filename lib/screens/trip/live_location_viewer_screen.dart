@@ -11,16 +11,18 @@ class LiveLocationViewerScreen extends StatefulWidget {
   const LiveLocationViewerScreen({super.key, required this.tripId});
 
   @override
-  State<LiveLocationViewerScreen> createState() => _LiveLocationViewerScreenState();
+  State<LiveLocationViewerScreen> createState() =>
+      _LiveLocationViewerScreenState();
 }
 
 class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
   final Completer<GoogleMapController> _controller = Completer();
   final FirestoreService _firestoreService = FirestoreService();
-  
-  StreamSubscription<TripModel>? _tripSubscription;
+
+  StreamSubscription<TripModel?>? _tripSubscription;
   Set<Marker> _markers = {};
   TripModel? _tripData;
+  String? _loadError;
 
   @override
   void initState() {
@@ -35,18 +37,38 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
   }
 
   void _subscribeToTrip() {
-    _tripSubscription = _firestoreService.streamTrip(widget.tripId).listen((data) {
-      if (mounted) {
-        setState(() {
-          _tripData = data;
-          _updateMarkers();
-        });
-        
-        _moveCamera(LatLng(data.currentLocation.latitude, data.currentLocation.longitude));
-      }
-    }, onError: (e) {
-      debugPrint('Error watching trip: $e');
-    });
+    _tripSubscription = _firestoreService
+        .streamTrip(widget.tripId)
+        .listen(
+          (data) {
+            if (mounted) {
+              setState(() {
+                _tripData = data;
+                _loadError = data == null
+                    ? 'This trip no longer exists.'
+                    : null;
+                _updateMarkers();
+              });
+
+              if (data != null) {
+                _moveCamera(
+                  LatLng(
+                    data.currentLocation['lat']!,
+                    data.currentLocation['lng']!,
+                  ),
+                );
+              }
+            }
+          },
+          onError: (e) {
+            if (mounted) {
+              setState(
+                () => _loadError =
+                    'Unable to access this trip. Check your account permissions.',
+              );
+            }
+          },
+        );
   }
 
   void _updateMarkers() {
@@ -56,21 +78,34 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
       _markers = {
         Marker(
           markerId: const MarkerId('start'),
-          position: LatLng(_tripData!.startLocation.latitude, _tripData!.startLocation.longitude),
+          position: LatLng(
+            _tripData!.startLocation['lat']!,
+            _tripData!.startLocation['lng']!,
+          ),
           infoWindow: const InfoWindow(title: 'Trip Started Here'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
         ),
         Marker(
           markerId: const MarkerId('destination'),
-          position: LatLng(_tripData!.destination.latitude, _tripData!.destination.longitude),
+          position: LatLng(
+            _tripData!.destination['lat']!,
+            _tripData!.destination['lng']!,
+          ),
           infoWindow: const InfoWindow(title: 'Destination'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
         Marker(
           markerId: const MarkerId('current_pos'),
-          position: LatLng(_tripData!.currentLocation.latitude, _tripData!.currentLocation.longitude),
+          position: LatLng(
+            _tripData!.currentLocation['lat']!,
+            _tripData!.currentLocation['lng']!,
+          ),
           infoWindow: const InfoWindow(title: 'Live Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
         ),
       };
     });
@@ -93,6 +128,9 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
   }
 
   Widget _buildBody() {
+    if (_loadError != null) {
+      return Center(child: Text(_loadError!));
+    }
     if (_tripData == null) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -104,7 +142,10 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
         GoogleMap(
           mapType: MapType.normal,
           initialCameraPosition: CameraPosition(
-            target: LatLng(_tripData!.currentLocation.latitude, _tripData!.currentLocation.longitude),
+            target: LatLng(
+              _tripData!.currentLocation['lat']!,
+              _tripData!.currentLocation['lng']!,
+            ),
             zoom: 15,
           ),
           markers: _markers,
@@ -114,7 +155,7 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
           myLocationButtonEnabled: false,
           zoomControlsEnabled: true,
         ),
-        
+
         // Status Overlay
         Positioned(
           top: 16,
@@ -125,7 +166,9 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
             decoration: BoxDecoration(
               color: isActive ? AegisColors.primary : Colors.grey[800],
               borderRadius: BorderRadius.circular(12),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 8),
+              ],
             ),
             child: Row(
               children: [
@@ -147,8 +190,7 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
           ),
         ),
 
-        if (!isActive)
-          _buildTripEndedOverlay(),
+        if (!isActive) _buildTripEndedOverlay(),
       ],
     );
   }
@@ -162,16 +204,24 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_outline, color: AegisColors.tertiary, size: 80),
+              const Icon(
+                Icons.check_circle_outline,
+                color: AegisColors.tertiary,
+                size: 80,
+              ),
               const SizedBox(height: 24),
               const Text(
-                'Trip Successfully Completed',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                'Trip Ended',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               const Text(
-                'The user has arrived safely or the trip was closed.',
+                'The trip is no longer active. This does not confirm a safe arrival.',
                 style: TextStyle(color: AegisColors.textSecondary),
                 textAlign: TextAlign.center,
               ),

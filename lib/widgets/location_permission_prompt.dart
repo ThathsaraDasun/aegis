@@ -8,8 +8,8 @@ class LocationPermissionPrompt extends StatelessWidget {
   final VoidCallback onRetry;
 
   const LocationPermissionPrompt({
-    super.key, 
-    required this.status, 
+    super.key,
+    required this.status,
     required this.onRetry
   });
 

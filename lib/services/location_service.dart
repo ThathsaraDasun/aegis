@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'firestore_service.dart';
 
@@ -14,12 +13,13 @@ enum LocationStatus {
 class LocationService {
   final FirestoreService _firestoreService = FirestoreService();
 
-  /// Expose a single `Stream<Position>` live location updates
+  /// Expose a single [Stream] of positions live location updates
   /// Sensible accuracy/distanceFilter settings suited to walking speed (~1.4 m/s)
   Stream<Position> livePositionStream() {
     const LocationSettings locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // 10 meters helps balance accuracy vs battery/write-spam
+      distanceFilter:
+          10, // 10 meters helps balance accuracy vs battery/write-spam
     );
     return Geolocator.getPositionStream(locationSettings: locationSettings);
   }
@@ -52,10 +52,10 @@ class LocationService {
   /// Pushes a new position into the trip's currentLocation field in Firestore
   /// via firestore_service.dart
   Future<void> updateFirestoreLocation(String tripId, Position position) async {
-    // ASSUMPTION: firestore_service.dart exposes updateTripLocation(tripId, GeoPoint)
     await _firestoreService.updateTripLocation(
       tripId,
-      GeoPoint(position.latitude, position.longitude),
+      position.latitude,
+      position.longitude,
     );
   }
 }

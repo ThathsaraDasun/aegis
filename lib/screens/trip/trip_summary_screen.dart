@@ -22,9 +22,13 @@ class TripSummaryScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                arrivedSafely ? Icons.verified_user : Icons.warning_amber_rounded,
+                arrivedSafely
+                    ? Icons.verified_user
+                    : Icons.warning_amber_rounded,
                 size: 100,
-                color: arrivedSafely ? AegisColors.tertiary : AegisColors.primary,
+                color: arrivedSafely
+                    ? AegisColors.tertiary
+                    : AegisColors.primary,
               ),
               const SizedBox(height: 32),
               Text(
@@ -38,9 +42,12 @@ class TripSummaryScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 arrivedSafely
-                    ? 'Your contacts have been notified of your safe arrival. Thank you for using Aegis.'
+                    ? 'Your safe arrival has been recorded. No arrival notification was sent.'
                     : 'The trip was ended automatically due to a timeout. If you are in danger, use the SOS features.',
-                style: const TextStyle(color: AegisColors.textSecondary, fontSize: 16),
+                style: const TextStyle(
+                  color: AegisColors.textSecondary,
+                  fontSize: 16,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -48,7 +55,8 @@ class TripSummaryScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+                  onPressed: () =>
+                      Navigator.popUntil(context, (route) => route.isFirst),
                   child: const Text('RETURN HOME'),
                 ),
               ),

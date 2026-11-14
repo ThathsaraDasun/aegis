@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -22,8 +21,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   final Completer<GoogleMapController> _controller = Completer();
   final LocationService _locationService = LocationService();
   final FirestoreService _firestoreService = FirestoreService();
-  
+
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<TripModel?>? _tripSubscription;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   final List<LatLng> _routePoints = [];
@@ -41,13 +41,16 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
 
   @override
   void dispose() {
+    _tripSubscription?.cancel();
     _positionSubscription?.cancel();
     _autoTimeoutTimer?.cancel();
     super.dispose();
   }
 
   void _loadTripData() {
-    _firestoreService.streamTrip(widget.tripId).listen((data) {
+    _tripSubscription = _firestoreService.streamTrip(widget.tripId).listen((
+      data,
+    ) {
       if (mounted) {
         setState(() {
           _tripData = data;
@@ -58,24 +61,27 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   }
 
   void _startTracking() {
-    _positionSubscription = _locationService.livePositionStream().listen((Position position) {
+    _positionSubscription = _locationService.livePositionStream().listen((
+      Position position,
+    ) {
       LatLng currentLatLng = LatLng(position.latitude, position.longitude);
-      
+
       if (mounted) {
         setState(() {
           _routePoints.add(currentLatLng);
           _updateMarkers();
           _updatePolylines();
         });
-        
+
         if (_followUser) {
           _moveCamera(currentLatLng);
         }
-        
+
         // Update Firestore for watchers
         _firestoreService.updateTripLocation(
-          widget.tripId, 
-          GeoPoint(position.latitude, position.longitude)
+          widget.tripId,
+          position.latitude,
+          position.longitude,
         );
       }
     });
@@ -94,7 +100,10 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     Set<Marker> newMarkers = {
       Marker(
         markerId: const MarkerId('destination'),
-        position: LatLng(_tripData!.destination.latitude, _tripData!.destination.longitude),
+        position: LatLng(
+          _tripData!.destination['lat']!,
+          _tripData!.destination['lng']!,
+        ),
         infoWindow: const InfoWindow(title: 'Destination'),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
       ),
@@ -106,7 +115,9 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           markerId: const MarkerId('current_pos'),
           position: _routePoints.last,
           infoWindow: const InfoWindow(title: 'My Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
         ),
       );
     }
@@ -140,8 +151,11 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
     await _positionSubscription?.cancel();
     _autoTimeoutTimer?.cancel();
 
-    await _firestoreService.endTrip(widget.tripId, arrivedSafely: arrivedSafely);
-    
+    await _firestoreService.endTrip(
+      widget.tripId,
+      status: arrivedSafely ? TripStatus.completed : TripStatus.alerted,
+    );
+
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -170,7 +184,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                 _moveCamera(_routePoints.last);
               }
             },
-          )
+          ),
         ],
       ),
       body: Stack(
@@ -178,9 +192,12 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           GoogleMap(
             mapType: MapType.normal,
             initialCameraPosition: CameraPosition(
-              target: _tripData != null 
-                ? LatLng(_tripData!.startLocation.latitude, _tripData!.startLocation.longitude)
-                : const LatLng(0, 0),
+              target: _tripData != null
+                  ? LatLng(
+                      _tripData!.startLocation['lat']!,
+                      _tripData!.startLocation['lng']!,
+                    )
+                  : const LatLng(0, 0),
               zoom: 17,
             ),
             markers: _markers,
@@ -191,7 +208,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
           ),
-          
+
           Positioned(
             bottom: 30,
             left: 20,
@@ -199,8 +216,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_tripData != null)
-                  _buildStatusCard(),
+                if (_tripData != null) _buildStatusCard(),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
@@ -209,12 +225,18 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
                     onPressed: () => _endTrip(arrivedSafely: true),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AegisColors.tertiary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       elevation: 8,
                     ),
                     child: const Text(
                       'I HAVE ARRIVED SAFELY',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -247,16 +269,26 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
               children: [
                 const Text(
                   'Trip Active',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Text(
-                  'Sharing live GPS with your guardians',
-                  style: TextStyle(color: AegisColors.textSecondary, fontSize: 12),
+                  'Saving GPS while this screen is open',
+                  style: TextStyle(
+                    color: AegisColors.textSecondary,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.timer_outlined, color: AegisColors.primary, size: 20),
+          const Icon(
+            Icons.timer_outlined,
+            color: AegisColors.primary,
+            size: 20,
+          ),
           const SizedBox(width: 4),
           const Text(
             '90m Left',
