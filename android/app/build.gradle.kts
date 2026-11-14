@@ -1,20 +1,11 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
-
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.inputStream().use { localProperties.load(it) }
-}
-
-val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY") ?: ""
 
 android {
     namespace = "com.aegis.safewalk"
@@ -40,8 +31,6 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     dependencies {
@@ -59,4 +48,16 @@ android {
 
 flutter {
     source = "../.."
+}
+
+secrets {
+    // Optionally specify a different file name containing your secrets (defaults to "local.properties")
+    propertiesFileName = "secrets.properties"
+
+    // A properties file containing default secret values. This file can be
+    // checked in version control.
+    defaultPropertiesFileName = "secrets.defaults.properties"
+
+    // Configure which keys should be ignored by the plugin
+    ignoreList.add("keyToIgnore")
 }

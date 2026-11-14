@@ -12,3 +12,10 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Secrets configuration
+secrets.properties
+!secrets.defaults.properties
+
+# Firebase configuration
+google-services.json
