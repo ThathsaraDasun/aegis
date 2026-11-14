@@ -5,9 +5,6 @@
 /// { "contactId": "cnt_01", "name": "Trusted Contact",
 ///   "relation": "Mother", "phone": "+94777654321", "isPrimary": true }
 /// ```
-///
-/// Medical info is NOT stored per contact – it belongs to the user and lives
-/// on the `users/{uid}` document (see `MedicalProfile`).
 class ContactModel {
   final String id;
   final String name;
@@ -17,8 +14,7 @@ class ContactModel {
   /// Primary guardians are alerted first during an SOS.
   final bool isPrimary;
 
-  /// Legacy field kept only so older callers keep compiling. It is no longer
-  /// written to Firestore – medical info lives on the user profile.
+  /// Legacy field kept only so older callers keep compiling.
   final String bloodType;
 
   ContactModel({
@@ -35,6 +31,7 @@ class ContactModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'contactId': id,
       'name': name.trim(),
       'phone': phone.trim(),
       'relation': relation.trim(),
@@ -42,14 +39,30 @@ class ContactModel {
     };
   }
 
-  factory ContactModel.fromMap(String id, Map<String, dynamic> map) {
-    return ContactModel(
-      id: id,
-      name: (map['name'] ?? '') as String,
-      phone: (map['phone'] ?? '') as String,
-      relation: (map['relation'] ?? '') as String,
-      isPrimary: (map['isPrimary'] ?? false) as bool,
-    );
+  Map<String, dynamic> toFirestore() => toMap();
+
+  factory ContactModel.fromMap(dynamic idOrMap, [Map<String, dynamic>? mapParam]) {
+    if (idOrMap is Map<String, dynamic>) {
+      final map = idOrMap;
+      final resolvedId = (map['contactId'] as String?) ?? (map['id'] as String?) ?? '';
+      return ContactModel(
+        id: resolvedId,
+        name: (map['name'] ?? '') as String,
+        phone: (map['phone'] ?? '') as String,
+        relation: (map['relation'] ?? '') as String,
+        isPrimary: (map['isPrimary'] ?? false) as bool,
+      );
+    } else {
+      final idStr = (idOrMap ?? '').toString();
+      final map = mapParam ?? {};
+      return ContactModel(
+        id: (map['contactId'] as String?) ?? idStr,
+        name: (map['name'] ?? '') as String,
+        phone: (map['phone'] ?? '') as String,
+        relation: (map['relation'] ?? '') as String,
+        isPrimary: (map['isPrimary'] ?? false) as bool,
+      );
+    }
   }
 
   ContactModel copyWith({

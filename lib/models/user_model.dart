@@ -17,7 +17,7 @@ class UserModel {
     this.emergencyNote = '',
   });
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'name': name,
@@ -28,15 +28,39 @@ class UserModel {
     };
   }
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+  Map<String, dynamic> toFirestore() => toMap();
+
+  factory UserModel.fromMap(Map<String, dynamic> map, [String? docId]) {
     return UserModel(
-      userId: data['userId'] ?? '',
-      name: data['name'] ?? '',
-      phone: data['phone'] ?? '',
-      bloodType: data['bloodType'] ?? '',
-      allergies: data['allergies'] ?? '',
-      emergencyNote: data['emergencyNote'] ?? '',
+      userId: (map['userId'] as String?) ?? docId ?? '',
+      name: (map['name'] as String?) ?? '',
+      phone: (map['phone'] as String?) ?? '',
+      bloodType: (map['bloodType'] as String?) ?? '',
+      allergies: (map['allergies'] as String?) ?? '',
+      emergencyNote: (map['emergencyNote'] as String?) ?? '',
+    );
+  }
+
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    final data = (doc.data() as Map<String, dynamic>?) ?? {};
+    return UserModel.fromMap(data, doc.id);
+  }
+
+  UserModel copyWith({
+    String? userId,
+    String? name,
+    String? phone,
+    String? bloodType,
+    String? allergies,
+    String? emergencyNote,
+  }) {
+    return UserModel(
+      userId: userId ?? this.userId,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      bloodType: bloodType ?? this.bloodType,
+      allergies: allergies ?? this.allergies,
+      emergencyNote: emergencyNote ?? this.emergencyNote,
     );
   }
 }

@@ -3,12 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
-import '../../core/models/lat_lng.dart';
-import '../../core/models/trip_model.dart';
 
-/// Backend service responsible for Live Trip Sharing, GPS location streaming,
+import '../../core/models/lat_lng.dart';
+import '../../models/trip_model.dart';
+import '../firestore_service.dart';
+
+/// Service responsible for Live Trip Sharing, GPS location streaming,
 /// ETA calculations, overdue tracking, silent check-in prompts, trip lifecycle, and FCM notifications.
 class TripService {
+  final FirestoreService _firestoreService;
   final FirebaseFirestore _firestore;
   final FirebaseMessaging _messaging;
   final Uuid _uuid;
@@ -20,51 +23,47 @@ class TripService {
   final Map<String, StreamController<bool>> _silentCheckInControllers = {};
 
   TripService({
+    FirestoreService? firestoreService,
     FirebaseFirestore? firestore,
     FirebaseMessaging? messaging,
     Uuid? uuid,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+  })  : _firestoreService = firestoreService ?? FirestoreService.instance,
+        _firestore = firestore ?? FirebaseFirestore.instance,
         _messaging = messaging ?? FirebaseMessaging.instance,
         _uuid = uuid ?? const Uuid();
 
   /// Starts a live trip.
   /// 
-  /// Creates a Firestore document at `/trips/{tripId}` with fields:
-  /// - `ownerId`
-  /// - `status` ("active")
-  /// - `startTime`
-  /// - `destination` (`{lat, lng, label}`)
-  /// - `routeChosen`
-  /// - `sharedWithContactIds`
-  /// 
-  /// Begins streaming GPS location using [geolocator] every 3-5 seconds, writing
-  /// coordinates and timestamp to `/trips/{tripId}/liveLocation`.
-  /// Sends an FCM push notification to each contact in [sharedWithContactIds].
+  /// Creates a Firestore document at `/trips/{tripId}` using [FirestoreService.createTrip].
+  /// Begins streaming GPS location using [geolocator], updating currentLocation via [FirestoreService.updateTripLocation].
+  /// Sends FCM push notifications to trusted contacts.
   Future<String> startTrip({
-    required String ownerId,
-    required Destination destination,
+    required String userId,
+    required Map<String, double> startLocation,
+    required Map<String, double> destination,
     required List<String> contactIds,
-    required String routeChosen,
+    String routeChosen = 'default_route',
   }) async {
     final tripId = _uuid.v4();
-    final startTime = DateTime.now();
+    final startedAt = DateTime.now();
 
-    // 1. Create Firestore trip document
-    final tripRef = _firestore.collection('trips').doc(tripId);
-    await tripRef.set({
-      'ownerId': ownerId,
-      'status': 'active',
-      'startTime': startTime.toIso8601String(),
-      'endTime': null,
-      'destination': destination.toMap(),
-      'routeChosen': routeChosen,
-      'sharedWithContactIds': contactIds,
-    });
+    final trip = TripModel(
+      tripId: tripId,
+      userId: userId,
+      status: TripStatus.active,
+      startLocation: startLocation,
+      currentLocation: startLocation,
+      destination: destination,
+      startedAt: startedAt,
+    );
+
+    // 1. Create Firestore trip document via FirestoreService
+    await _firestoreService.createTrip(trip);
 
     // 2. Send FCM push notifications to trusted contacts
-    await _sendTripStartNotifications(tripId, ownerId, destination, contactIds);
+    await _sendTripStartNotifications(tripId, userId, destination, contactIds);
 
-    // 3. Start location tracking (every 3-5 seconds interval / distance filter)
+    // 3. Start location tracking
     _startLocationTracking(tripId, destination);
 
     return tripId;
@@ -78,7 +77,7 @@ class TripService {
     return _locationControllers[tripId]!.stream;
   }
 
-  /// Computes and streams Estimated Time of Arrival (ETA) based on current position, recent speed, and destination.
+  /// Computes and streams Estimated Time of Arrival (ETA) based on current position and destination.
   Stream<Duration> etaStream(String tripId) {
     if (!_etaControllers.containsKey(tripId)) {
       _etaControllers[tripId] = StreamController<Duration>.broadcast();
@@ -94,7 +93,7 @@ class TripService {
     return _overdueControllers[tripId]!.stream;
   }
 
-  /// Emits `true` if the user's position hasn't changed meaningfully for a configurable duration (default 5 minutes) mid-trip.
+  /// Emits `true` if the user's position hasn't changed meaningfully for a configurable duration.
   Stream<bool> silentCheckInPromptStream(String tripId, {Duration threshold = const Duration(minutes: 5)}) {
     if (!_silentCheckInControllers.containsKey(tripId)) {
       _silentCheckInControllers[tripId] = StreamController<bool>.broadcast();
@@ -102,68 +101,28 @@ class TripService {
     return _silentCheckInControllers[tripId]!.stream;
   }
 
-  /// Ends the trip: stops location streaming, updates status to "completed",
-  /// and writes a summary (duration, route, whether any alert event occurred) for getTripHistory().
+  /// Ends the trip: stops location streaming and updates status to "completed" via [FirestoreService].
   Future<void> endTrip(String tripId) async {
     // 1. Stop location tracking
     await _positionSubscription?.cancel();
     _positionSubscription = null;
 
-    // 2. Query events subcollection to check if any alert occurred
-    final eventsSnapshot = await _firestore
-        .collection('trips')
-        .doc(tripId)
-        .collection('events')
-        .get();
-    
-    bool alertOccurred = false;
-    for (var doc in eventsSnapshot.docs) {
-      final type = doc.data()['type'] as String?;
-      if (type == 'fallDetected' || type == 'sosTriggered') {
-        alertOccurred = true;
-        break;
-      }
-    }
+    // 2. Mark trip as completed in Firestore via FirestoreService
+    await _firestoreService.endTrip(tripId, status: TripStatus.completed);
 
-    // 3. Fetch trip document for start time and destination label
-    final tripRef = _firestore.collection('trips').doc(tripId);
-    final tripDoc = await tripRef.get();
-    final data = tripDoc.data() ?? {};
-    final startTimeStr = data['startTime'] as String? ?? DateTime.now().toIso8601String();
-    final startTime = DateTime.tryParse(startTimeStr) ?? DateTime.now();
-    final endTime = DateTime.now();
-    final duration = endTime.difference(startTime);
-
-    // 4. Update trip status and summary in Firestore
-    await tripRef.update({
-      'status': 'completed',
-      'endTime': endTime.toIso8601String(),
-      'durationSeconds': duration.inSeconds,
-      'alertOccurred': alertOccurred,
-    });
-
-    // 5. Clean up stream controllers
+    // 3. Clean up stream controllers
     _closeControllers(tripId);
   }
 
-  /// Returns past trips as a list of [TripSummary] queried from Firestore by ownerId.
-  Future<List<TripSummary>> getTripHistory(String userId) async {
-    final querySnapshot = await _firestore
-        .collection('trips')
-        .where('ownerId', isEqualTo: userId)
-        .where('status', isEqualTo: 'completed')
-        .orderBy('startTime', descending: true)
-        .get();
-
-    return querySnapshot.docs.map((doc) {
-      return TripSummary.fromMap(doc.id, doc.data());
-    }).toList();
+  /// Returns past trips as a list of [TripModel] queried from Firestore by userId.
+  Future<List<TripModel>> getTripHistory(String userId) async {
+    return _firestoreService.streamTripHistory(userId).first;
   }
 
   // --- Internal Helper Methods ---
 
-  void _startLocationTracking(String tripId, Destination destination) {
-    final locationSettings = LocationSettings(
+  void _startLocationTracking(String tripId, Map<String, double> destination) {
+    const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 2,
     );
@@ -174,15 +133,9 @@ class TripService {
     _positionSubscription = Geolocator.getPositionStream(locationSettings: locationSettings).listen(
       (Position position) async {
         final currentLatLng = LatLng(latitude: position.latitude, longitude: position.longitude);
-        final timestamp = DateTime.now().toIso8601String();
 
-        // Write live location to Firestore at /trips/{tripId}/liveLocation
-        await _firestore.collection('trips').doc(tripId).collection('liveLocation').doc('latest').set({
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'timestamp': timestamp,
-          'speed': position.speed,
-        });
+        // Update live location via FirestoreService
+        await _firestoreService.updateTripLocation(tripId, position.latitude, position.longitude);
 
         // Emit to local stream controller
         if (_locationControllers.containsKey(tripId) && !(_locationControllers[tripId]!.isClosed)) {
@@ -190,11 +143,14 @@ class TripService {
         }
 
         // Compute and emit ETA
+        final destLat = destination['lat'] ?? 0.0;
+        final destLng = destination['lng'] ?? 0.0;
+
         final distanceMeters = Geolocator.distanceBetween(
           position.latitude,
           position.longitude,
-          destination.lat,
-          destination.lng,
+          destLat,
+          destLng,
         );
         final speed = position.speed > 0.5 ? position.speed : 1.4; // fallback walking speed ~1.4 m/s
         final etaSeconds = (distanceMeters / speed).round();
@@ -239,11 +195,10 @@ class TripService {
 
   Future<void> _sendTripStartNotifications(
     String tripId,
-    String ownerId,
-    Destination destination,
+    String userId,
+    Map<String, double> destination,
     List<String> contactIds,
   ) async {
-    // Ensure FCM permissions and retrieve device token if available
     try {
       await _messaging.requestPermission();
     } catch (_) {}
@@ -258,11 +213,11 @@ class TripService {
             'recipientId': contactId,
             'fcmToken': fcmToken,
             'title': 'Safe Walk: Trip Started',
-            'body': 'Your contact started a trip to ${destination.label}. Track live here.',
+            'body': 'Your contact started a live safe walk. Track live here.',
             'data': {
               'type': 'tripStart',
               'tripId': tripId,
-              'ownerId': ownerId,
+              'userId': userId,
             },
             'timestamp': FieldValue.serverTimestamp(),
             'status': 'pending',

@@ -1,15 +1,16 @@
 import 'dart:async';
 import '../../core/models/lat_lng.dart';
-import '../../core/models/trip_model.dart';
+import '../../models/trip_model.dart';
 
-/// Abstract interface for TripService to allow mocking by the Frontend Lead.
+/// Abstract interface for TripService to allow mocking.
 abstract class ITripService {
   /// Starts a new trip, creating a Firestore document at /trips/{tripId} and broadcasting location.
   Future<String> startTrip({
-    required String ownerId,
-    required Destination destination,
+    required String userId,
+    required Map<String, double> startLocation,
+    required Map<String, double> destination,
     required List<String> contactIds,
-    required String routeChosen,
+    String routeChosen = 'default_route',
   });
 
   /// Streams live location coordinates for map marker binding.
@@ -28,17 +29,18 @@ abstract class ITripService {
   Future<void> endTrip(String tripId);
 
   /// Retrieves past trip history summaries for a given user ID.
-  Future<List<TripSummary>> getTripHistory(String userId);
+  Future<List<TripModel>> getTripHistory(String userId);
 }
 
 /// Mock implementation of [ITripService] for UI development and testing.
 class MockTripService implements ITripService {
   @override
   Future<String> startTrip({
-    required String ownerId,
-    required Destination destination,
+    required String userId,
+    required Map<String, double> startLocation,
+    required Map<String, double> destination,
     required List<String> contactIds,
-    required String routeChosen,
+    String routeChosen = 'default_route',
   }) async {
     await Future.delayed(const Duration(milliseconds: 500));
     return 'mock_trip_id_123';
@@ -76,24 +78,18 @@ class MockTripService implements ITripService {
   }
 
   @override
-  Future<List<TripSummary>> getTripHistory(String userId) async {
+  Future<List<TripModel>> getTripHistory(String userId) async {
     await Future.delayed(const Duration(milliseconds: 400));
     return [
-      TripSummary(
+      TripModel(
         tripId: 'trip_001',
-        destinationLabel: 'Home - 42 Wallaby Way',
-        date: DateTime.now().subtract(const Duration(days: 1)),
-        duration: const Duration(minutes: 25),
-        alertOccurred: false,
-        routeChosen: 'Safe Corridor via Main St',
-      ),
-      TripSummary(
-        tripId: 'trip_002',
-        destinationLabel: 'University Library',
-        date: DateTime.now().subtract(const Duration(days: 3)),
-        duration: const Duration(minutes: 18),
-        alertOccurred: false,
-        routeChosen: 'Well-lit Park Path',
+        userId: userId,
+        status: TripStatus.completed,
+        startLocation: {'lat': 6.9271, 'lng': 79.8612},
+        currentLocation: {'lat': 6.9344, 'lng': 79.8451},
+        destination: {'lat': 6.9344, 'lng': 79.8451},
+        startedAt: DateTime.now().subtract(const Duration(days: 1)),
+        endedAt: DateTime.now().subtract(const Duration(days: 1, hours: -1)),
       ),
     ];
   }
