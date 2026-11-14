@@ -22,6 +22,7 @@ plugins {
     id("com.android.application") version "8.9.1" apply false
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin") version "2.0.1" apply false
 }
 
 include(":app")

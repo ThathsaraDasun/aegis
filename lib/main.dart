@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
+import 'screens/trip/start_trip_screen.dart';
 import 'screens/splash/splash_screen.dart';
 
 import 'screens/route/compass_screen.dart';
@@ -154,22 +155,7 @@ class ActiveWalkDashboardScreen extends StatefulWidget {
 }
 
 class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
-  bool _isTripActive = false;
-
-  void _toggleWalk() {
-    setState(() => _isTripActive = !_isTripActive);
-    final msg = _isTripActive
-        ? 'Live GPS trip sharing active! Guardians notified.'
-        : 'Trip ended safely. Arrival broadcasted to guardians.';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg, style: GoogleFonts.outfit()),
-        backgroundColor: _isTripActive
-            ? AegisColors.tertiary
-            : AegisColors.primary,
-      ),
-    );
-  }
+  final bool _isTripActive = false;
 
   bool _sendingAlert = false;
   String? _pendingAlertId;
@@ -455,7 +441,14 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: _toggleWalk,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StartTripScreen(),
+                          ),
+                        );
+                      },
                       icon: Icon(_isTripActive ? Icons.stop : Icons.play_arrow),
                       label: Text(
                         _isTripActive

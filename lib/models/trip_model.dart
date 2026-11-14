@@ -65,6 +65,9 @@ class TripModel {
   }
 
   static Map<String, double> _parseLocationMap(dynamic locData) {
+    if (locData is GeoPoint) {
+      return {'lat': locData.latitude, 'lng': locData.longitude};
+    }
     if (locData is Map) {
       return {
         'lat': (locData['lat'] as num?)?.toDouble() ?? 0.0,

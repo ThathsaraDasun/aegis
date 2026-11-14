@@ -45,7 +45,13 @@ app.*.map.json
 /android/app/release
 
 # Local environment configuration
+local.properties
 android/local.properties
+**/secrets.properties
+**/secrets.*.properties
+secrets.properties
+!secrets.defaults.properties
+!**/secrets.defaults.properties
 .gradle/
 
 # Firebase configuration files
