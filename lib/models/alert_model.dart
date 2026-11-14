@@ -1,5 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'trip_model.dart' show parseLatLng, parseDate;
+import 'trip_model.dart' show parseLatLng;
+
+class AlertType {
+  static const String fallDetected = 'fall_detected';
+  static const String manualSos = 'manual_sos';
+
+  static const List<String> all = [fallDetected, manualSos];
+}
 
 class AlertModel {
   final String alertId;
@@ -20,37 +27,46 @@ class AlertModel {
     this.resolved = false,
   });
 
-  /// Outcome shown in the alert log.
-  ///
-  /// An alert is only written once the SOS pipeline fires, so an alert the
-  /// user has not marked as resolved is treated as escalated to contacts.
-  String get outcome => resolved ? 'resolved' : 'escalated';
+  String get outcome => resolved ? 'resolved' : 'unresolved';
 
-  /// Human-readable alert type.
-  String get typeLabel => type.toLowerCase() == 'manual_sos' ? 'Manual SOS' : 'Fall Detected';
+  String get typeLabel =>
+      type == AlertType.manualSos ? 'Manual SOS' : 'Fall Detected';
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
       'alertId': alertId,
       'tripId': tripId,
       'userId': userId,
       'type': type,
       'location': location,
-      'triggeredAt': triggeredAt,
+      'triggeredAt': Timestamp.fromDate(triggeredAt),
       'resolved': resolved,
     };
   }
 
+  Map<String, dynamic> toFirestore() => toMap();
+
+  factory AlertModel.fromMap(Map<String, dynamic> map, [String? docId]) {
+    return AlertModel(
+      alertId: (map['alertId'] as String?) ?? docId ?? '',
+      tripId: (map['tripId'] as String?) ?? '',
+      userId: (map['userId'] as String?) ?? '',
+      type: (map['type'] as String?) ?? AlertType.manualSos,
+      location: parseLatLng(map['location']),
+      triggeredAt: _parseDate(map['triggeredAt']),
+      resolved: (map['resolved'] as bool?) ?? false,
+    );
+  }
+
   factory AlertModel.fromFirestore(DocumentSnapshot doc) {
     final data = (doc.data() as Map<String, dynamic>?) ?? {};
-    return AlertModel(
-      alertId: (data['alertId'] as String?)?.isNotEmpty == true ? data['alertId'] : doc.id,
-      tripId: data['tripId'] ?? '',
-      userId: data['userId'] ?? '',
-      type: data['type'] ?? '',
-      location: parseLatLng(data['location']),
-      triggeredAt: parseDate(data['triggeredAt']) ?? DateTime.now(),
-      resolved: data['resolved'] ?? false,
-    );
+    return AlertModel.fromMap(data, doc.id);
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 }

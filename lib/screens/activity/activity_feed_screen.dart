@@ -49,28 +49,34 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen> {
           message: 'Please sign in to view your activity.',
         ),
         signedIn: (context, user) => Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AegisSpacing.lg,
-                    AegisSpacing.md,
-                    AegisSpacing.lg,
-                    0,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AegisSpacing.lg,
+                AegisSpacing.md,
+                AegisSpacing.lg,
+                0,
+              ),
+              child: SegmentedButton<_ActivityFilter>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: _ActivityFilter.all, label: Text('All')),
+                  ButtonSegment(
+                    value: _ActivityFilter.trips,
+                    label: Text('Trips'),
                   ),
-                  child: SegmentedButton<_ActivityFilter>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: _ActivityFilter.all, label: Text('All')),
-                      ButtonSegment(value: _ActivityFilter.trips, label: Text('Trips')),
-                      ButtonSegment(value: _ActivityFilter.alerts, label: Text('Alert Log')),
-                    ],
-                    selected: {_filter},
-                    onSelectionChanged: (s) => setState(() => _filter = s.first),
+                  ButtonSegment(
+                    value: _ActivityFilter.alerts,
+                    label: Text('Alert Log'),
                   ),
-                ),
-                Expanded(child: _buildFeed(user.uid)),
-              ],
+                ],
+                selected: {_filter},
+                onSelectionChanged: (s) => setState(() => _filter = s.first),
+              ),
             ),
+            Expanded(child: _buildFeed(user.uid)),
+          ],
+        ),
       ),
     );
   }

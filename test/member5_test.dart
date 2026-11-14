@@ -34,7 +34,10 @@ void main() {
       expect(CompassService.headingFromMagnetometer(-30, 0), closeTo(90, 1e-9));
     });
     test('facing south is 180', () {
-      expect(CompassService.headingFromMagnetometer(0, -30), closeTo(180, 1e-9));
+      expect(
+        CompassService.headingFromMagnetometer(0, -30),
+        closeTo(180, 1e-9),
+      );
     });
     test('facing west is 270', () {
       expect(CompassService.headingFromMagnetometer(30, 0), closeTo(270, 1e-9));
@@ -51,12 +54,20 @@ void main() {
       expect(v, closeTo(0, 1e-9));
     });
     test('bearing due east is about 90', () {
-      final b = CompassService.calculateBearing(startLat: 0, startLng: 0, endLat: 0, endLng: 1);
+      final b = CompassService.calculateBearing(
+        startLat: 0,
+        startLng: 0,
+        endLat: 0,
+        endLng: 1,
+      );
       expect(b, closeTo(90, 1e-6));
     });
     test('arrow rotation is bearing minus heading', () {
       expect(
-        CompassService.calculateArrowRotation(deviceHeading: 90, destinationBearing: 45),
+        CompassService.calculateArrowRotation(
+          deviceHeading: 90,
+          destinationBearing: 45,
+        ),
         closeTo(315, 1e-9),
       );
     });
@@ -78,17 +89,17 @@ void main() {
 
   group('Alert outcome', () {
     AlertModel alert(bool resolved) => AlertModel(
-          alertId: 'a',
-          tripId: 't',
-          userId: 'u',
-          type: 'fall_detected',
-          location: const {},
-          triggeredAt: DateTime(2026),
-          resolved: resolved,
-        );
-    test('resolved vs escalated', () {
+      alertId: 'a',
+      tripId: 't',
+      userId: 'u',
+      type: 'fall_detected',
+      location: const {},
+      triggeredAt: DateTime(2026),
+      resolved: resolved,
+    );
+    test('resolved vs unresolved', () {
       expect(alert(true).outcome, 'resolved');
-      expect(alert(false).outcome, 'escalated');
+      expect(alert(false).outcome, 'unresolved');
       expect(alert(false).typeLabel, 'Fall Detected');
     });
   });
@@ -113,9 +124,16 @@ void main() {
   group('TripCard helpers', () {
     test('duration label', () {
       final start = DateTime(2026, 1, 1, 9);
-      expect(TripCard.durationLabel(_trip(start: start, end: start.add(const Duration(minutes: 45)))), '45m');
       expect(
-        TripCard.durationLabel(_trip(start: start, end: start.add(const Duration(minutes: 80)))),
+        TripCard.durationLabel(
+          _trip(start: start, end: start.add(const Duration(minutes: 45))),
+        ),
+        '45m',
+      );
+      expect(
+        TripCard.durationLabel(
+          _trip(start: start, end: start.add(const Duration(minutes: 80))),
+        ),
         '1h 20m',
       );
       expect(TripCard.durationLabel(_trip()), isNull);
@@ -126,7 +144,9 @@ void main() {
     });
   });
 
-  testWidgets('RouteSketchPainter paints a trip without errors', (tester) async {
+  testWidgets('RouteSketchPainter paints a trip without errors', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: SizedBox(

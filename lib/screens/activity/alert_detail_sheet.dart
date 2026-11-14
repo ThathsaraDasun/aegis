@@ -9,7 +9,7 @@ import '../../widgets/state_views.dart';
 import '../../widgets/trip_card.dart';
 
 /// Bottom sheet with the full record of one SOS / fall alert:
-/// type, time, location and outcome (resolved / escalated).
+/// type, time, location and outcome (resolved / unresolved).
 class AlertDetailSheet extends StatelessWidget {
   const AlertDetailSheet({super.key, required this.alert});
 
@@ -30,7 +30,9 @@ class AlertDetailSheet extends StatelessWidget {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open a maps app on this device.')),
+        const SnackBar(
+          content: Text('Could not open a maps app on this device.'),
+        ),
       );
     }
   }
@@ -40,9 +42,13 @@ class AlertDetailSheet extends StatelessWidget {
     Navigator.of(context).pop();
     try {
       await ActivityService().resolveAlert(alert.alertId);
-      messenger.showSnackBar(const SnackBar(content: Text('Alert marked as resolved.')));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Alert marked as resolved.')),
+      );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not update alert: $e')));
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not update alert: $e')),
+      );
     }
   }
 
@@ -50,7 +56,8 @@ class AlertDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final format = DateFormat('EEE, MMM dd yyyy · hh:mm a');
     final color = AlertBanner.outcomeColor(alert);
-    final hasLocation = alert.location.containsKey('lat') && alert.location.containsKey('lng');
+    final hasLocation =
+        alert.location.containsKey('lat') && alert.location.containsKey('lng');
 
     return SafeArea(
       child: Padding(
@@ -66,21 +73,30 @@ class AlertDetailSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(AlertBanner.iconFor(alert), color: color, size: AegisSizes.iconLg),
+                Icon(
+                  AlertBanner.iconFor(alert),
+                  color: color,
+                  size: AegisSizes.iconLg,
+                ),
                 const SizedBox(width: AegisSpacing.md),
-                Expanded(child: Text(alert.typeLabel, style: AegisText.headline)),
+                Expanded(
+                  child: Text(alert.typeLabel, style: AegisText.headline),
+                ),
                 StatusChip(label: alert.outcome, color: color),
               ],
             ),
             const SizedBox(height: AegisSpacing.xl),
             _row('Triggered', format.format(alert.triggeredAt)),
             _row('Location', TripCard.coordinateLabel(alert.location)),
-            _row('Trip', alert.tripId.isEmpty ? 'Not linked to a trip' : alert.tripId),
+            _row(
+              'Trip',
+              alert.tripId.isEmpty ? 'Not linked to a trip' : alert.tripId,
+            ),
             _row(
               'Outcome',
               alert.resolved
                   ? 'Resolved. The user confirmed they were safe.'
-                  : 'Escalated. Trusted contacts were alerted.',
+                  : 'Unresolved. An alert was recorded; contact delivery is not confirmed.',
             ),
             const SizedBox(height: AegisSpacing.xl),
             if (hasLocation)
@@ -100,7 +116,9 @@ class AlertDetailSheet extends StatelessWidget {
                 height: AegisSizes.buttonHeight,
                 child: ElevatedButton.icon(
                   onPressed: () => _markResolved(context),
-                  style: ElevatedButton.styleFrom(backgroundColor: AegisColors.tertiary),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AegisColors.tertiary,
+                  ),
                   icon: const Icon(Icons.check_circle_outline),
                   label: const Text('Mark as Resolved'),
                 ),
@@ -118,7 +136,10 @@ class AlertDetailSheet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 90, child: Text(label, style: AegisText.bodySecondary)),
+          SizedBox(
+            width: 90,
+            child: Text(label, style: AegisText.bodySecondary),
+          ),
           Expanded(child: Text(value, style: AegisText.body)),
         ],
       ),

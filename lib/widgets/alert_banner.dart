@@ -12,19 +12,17 @@ class AlertBanner extends StatelessWidget {
   /// Callback when the banner is tapped.
   final VoidCallback? onTap;
 
-  const AlertBanner({
-    super.key,
-    required this.alert,
-    this.onTap,
-  });
+  const AlertBanner({super.key, required this.alert, this.onTap});
 
-  /// Colour for an alert outcome: green when resolved, orange when escalated.
+  /// Colour for an alert outcome: green when resolved, orange when unresolved.
   static Color outcomeColor(AlertModel alert) =>
       alert.resolved ? AegisColors.tertiary : AegisColors.primary;
 
   /// Icon for the alert type.
   static IconData iconFor(AlertModel alert) =>
-      alert.type.toLowerCase() == 'manual_sos' ? Icons.sos : Icons.personal_injury;
+      alert.type.toLowerCase() == 'manual_sos'
+      ? Icons.sos
+      : Icons.personal_injury;
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +55,11 @@ class AlertBanner extends StatelessWidget {
                     color: alertColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(iconFor(alert), color: alertColor, size: AegisSizes.iconLg),
+                  child: Icon(
+                    iconFor(alert),
+                    color: alertColor,
+                    size: AegisSizes.iconLg,
+                  ),
                 ),
                 const SizedBox(width: AegisSpacing.lg),
                 Expanded(

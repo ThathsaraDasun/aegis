@@ -1,7 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
 import '../../services/activity_service.dart';
+import '../../services/seed_service.dart';
 import '../../theme/aegis_theme.dart';
 import '../../widgets/contact_card.dart';
 import '../../widgets/signed_in_builder.dart';
@@ -29,34 +32,39 @@ class ProfileScreen extends StatelessWidget {
           message: 'No user signed in. Sign in to view your profile.',
         ),
         signedIn: (context, firebaseUser) => StreamBuilder<UserModel?>(
-              stream: (service ?? ActivityService()).watchUser(firebaseUser.uid),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return ErrorStateView(error: snapshot.error.toString());
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const LoadingView();
-                }
+          stream: (service ?? ActivityService()).watchUser(firebaseUser.uid),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return ErrorStateView(error: snapshot.error.toString());
+            }
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const LoadingView();
+            }
 
-                final user = snapshot.data;
-                final email = firebaseUser.email ?? 'No email provided';
+            final user = snapshot.data;
+            final email = firebaseUser.email ?? 'No email provided';
 
-                if (user == null) {
-                  return EmptyStateView(
-                    icon: Icons.person_add_alt_1_outlined,
-                    message: 'Your profile is not set up yet.\nAdd your details and medical info '
-                        'so guardians see them during an SOS.',
-                    actionLabel: 'Set Up Profile',
-                    onAction: () => EditProfileScreen.open(
-                      context,
-                      UserModel(userId: firebaseUser.uid, name: firebaseUser.displayName ?? '', phone: ''),
-                    ),
-                  );
-                }
+            if (user == null) {
+              return EmptyStateView(
+                icon: Icons.person_add_alt_1_outlined,
+                message:
+                    'Your profile is not set up yet.\nAdd your details and medical info '
+                    'so guardians see them during an SOS.',
+                actionLabel: 'Set Up Profile',
+                onAction: () => EditProfileScreen.open(
+                  context,
+                  UserModel(
+                    userId: firebaseUser.uid,
+                    name: firebaseUser.displayName ?? '',
+                    phone: '',
+                  ),
+                ),
+              );
+            }
 
-                return _ProfileContent(user: user, email: email);
-              },
-            ),
+            return _ProfileContent(user: user, email: email);
+          },
+        ),
       ),
     );
   }
@@ -71,12 +79,14 @@ class _ProfileContent extends StatelessWidget {
   Future<void> _handleSignOut(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signOut();
-      if (context.mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error signing out: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error signing out: $e')));
       }
     }
   }
@@ -101,7 +111,10 @@ class _ProfileContent extends StatelessWidget {
                     backgroundColor: AegisColors.avatarFor(user.name),
                     child: Text(
                       ContactCard.initialsFor(user.name),
-                      style: AegisText.headline.copyWith(fontSize: 26, color: AegisColors.onPrimary),
+                      style: AegisText.headline.copyWith(
+                        fontSize: 26,
+                        color: AegisColors.onPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AegisSpacing.lg),
@@ -129,13 +142,18 @@ class _ProfileContent extends StatelessWidget {
           ),
           const SizedBox(height: AegisSpacing.xl),
 
-          const SectionHeader('Emergency Medical Profile', color: AegisColors.primary),
+          const SectionHeader(
+            'Emergency Medical Profile',
+            color: AegisColors.primary,
+          ),
           Card(
             margin: EdgeInsets.zero,
             elevation: AegisElevation.none,
             shape: RoundedRectangleBorder(
               borderRadius: AegisRadius.lgAll,
-              side: BorderSide(color: AegisColors.primary.withValues(alpha: 0.3)),
+              side: BorderSide(
+                color: AegisColors.primary.withValues(alpha: 0.3),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(AegisSpacing.xl),
@@ -147,7 +165,9 @@ class _ProfileContent extends StatelessWidget {
                       Expanded(
                         child: _MedicalDetailTile(
                           label: 'Blood Type',
-                          value: user.bloodType.isNotEmpty ? user.bloodType : 'Not Set',
+                          value: user.bloodType.isNotEmpty
+                              ? user.bloodType
+                              : 'Not Set',
                           icon: Icons.bloodtype_outlined,
                           valueColor: AegisColors.tertiary,
                         ),
@@ -156,7 +176,9 @@ class _ProfileContent extends StatelessWidget {
                       Expanded(
                         child: _MedicalDetailTile(
                           label: 'Allergies',
-                          value: user.allergies.isNotEmpty ? user.allergies : 'None Reported',
+                          value: user.allergies.isNotEmpty
+                              ? user.allergies
+                              : 'None Reported',
                           icon: Icons.medical_services_outlined,
                           valueColor: AegisColors.secondary,
                         ),
@@ -166,10 +188,15 @@ class _ProfileContent extends StatelessWidget {
                   const SizedBox(height: AegisSpacing.lg),
                   const Divider(),
                   const SizedBox(height: AegisSpacing.lg),
-                  Text('Emergency Note for First Responders', style: AegisText.small),
+                  Text(
+                    'Emergency Note for First Responders',
+                    style: AegisText.small,
+                  ),
                   const SizedBox(height: 6),
                   Text(
-                    user.emergencyNote.isNotEmpty ? user.emergencyNote : 'No emergency notes specified.',
+                    user.emergencyNote.isNotEmpty
+                        ? user.emergencyNote
+                        : 'No emergency notes specified.',
                     style: AegisText.body,
                   ),
                 ],
@@ -184,10 +211,19 @@ class _ProfileContent extends StatelessWidget {
             elevation: AegisElevation.none,
             child: ListTile(
               shape: AegisRadius.lgShape,
-              leading: const Icon(Icons.history_outlined, color: AegisColors.tertiary),
+              leading: const Icon(
+                Icons.history_outlined,
+                color: AegisColors.tertiary,
+              ),
               title: Text('Trip History', style: AegisText.bodyStrong),
-              subtitle: Text('Past walks and their routes', style: AegisText.small),
-              trailing: const Icon(Icons.chevron_right, color: AegisColors.textSecondary),
+              subtitle: Text(
+                'Past walks and their routes',
+                style: AegisText.small,
+              ),
+              trailing: const Icon(
+                Icons.chevron_right,
+                color: AegisColors.textSecondary,
+              ),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const TripHistoryScreen()),
               ),
@@ -210,11 +246,71 @@ class _ProfileContent extends StatelessWidget {
             height: AegisSizes.buttonHeight,
             child: ElevatedButton.icon(
               onPressed: () => _handleSignOut(context),
-              style: ElevatedButton.styleFrom(backgroundColor: AegisColors.primaryContainer),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AegisColors.primaryContainer,
+              ),
               icon: const Icon(Icons.logout),
               label: const Text('Sign Out'),
             ),
           ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    await SeedService.instance.seedDemoData();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Demo data successfully seeded to Firestore!',
+                            style: GoogleFonts.inter(),
+                          ),
+                          backgroundColor: AegisColors.tertiary,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Failed to seed demo data: $e',
+                            style: GoogleFonts.inter(),
+                          ),
+                          backgroundColor: AegisColors.secondary,
+                        ),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(
+                  Icons.dataset_linked_outlined,
+                  color: AegisColors.tertiary,
+                ),
+                label: Text(
+                  'Seed Demo Data (Debug)',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AegisColors.tertiary,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(
+                    color: AegisColors.tertiary,
+                    width: 1.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -249,7 +345,11 @@ class _MedicalDetailTile extends StatelessWidget {
               const SizedBox(height: AegisSpacing.xxs),
               Text(
                 value,
-                style: AegisText.bodyStrong.copyWith(fontSize: 15, fontWeight: FontWeight.bold, color: valueColor),
+                style: AegisText.bodyStrong.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: valueColor,
+                ),
               ),
             ],
           ),

@@ -1,5 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class TripStatus {
+  static const String active = 'active';
+  static const String completed = 'completed';
+  static const String alerted = 'alerted';
+
+  static const List<String> all = [active, completed, alerted];
+}
+
 class TripModel {
   final String tripId;
   final String userId;
@@ -21,7 +29,7 @@ class TripModel {
     this.endedAt,
   });
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toMap() {
     return {
       'tripId': tripId,
       'userId': userId,
@@ -29,23 +37,38 @@ class TripModel {
       'startLocation': startLocation,
       'currentLocation': currentLocation,
       'destination': destination,
-      'startedAt': startedAt,
-      'endedAt': endedAt,
+      'startedAt': Timestamp.fromDate(startedAt),
+      'endedAt': endedAt != null ? Timestamp.fromDate(endedAt!) : null,
     };
+  }
+
+  Map<String, dynamic> toFirestore() => toMap();
+
+  factory TripModel.fromMap(Map<String, dynamic> map, [String? docId]) {
+    return TripModel(
+      tripId: (map['tripId'] as String?) ?? docId ?? '',
+      userId: (map['userId'] as String?) ?? (map['ownerId'] as String?) ?? '',
+      status: (map['status'] as String?) ?? TripStatus.active,
+      startLocation: parseLatLng(map['startLocation']),
+      currentLocation: parseLatLng(map['currentLocation']),
+      destination: parseLatLng(map['destination']),
+      startedAt: _parseDate(map['startedAt'] ?? map['startTime']),
+      endedAt: map['endedAt'] != null || map['endTime'] != null
+          ? _parseDate(map['endedAt'] ?? map['endTime'])
+          : null,
+    );
   }
 
   factory TripModel.fromFirestore(DocumentSnapshot doc) {
     final data = (doc.data() as Map<String, dynamic>?) ?? {};
-    return TripModel(
-      tripId: (data['tripId'] as String?)?.isNotEmpty == true ? data['tripId'] : doc.id,
-      userId: data['userId'] ?? '',
-      status: data['status'] ?? 'active',
-      startLocation: parseLatLng(data['startLocation']),
-      currentLocation: parseLatLng(data['currentLocation']),
-      destination: parseLatLng(data['destination']),
-      startedAt: parseDate(data['startedAt']) ?? DateTime.now(),
-      endedAt: parseDate(data['endedAt']),
-    );
+    return TripModel.fromMap(data, doc.id);
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 }
 

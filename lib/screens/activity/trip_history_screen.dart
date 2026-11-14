@@ -27,34 +27,34 @@ class TripHistoryScreen extends StatelessWidget {
           message: 'Please sign in to view your trip history.',
         ),
         signedIn: (context, user) => StreamBuilder<List<TripModel>>(
-              stream: (service ?? ActivityService()).watchTrips(user.uid),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return ErrorStateView(error: snapshot.error.toString());
-                }
-                if (!snapshot.hasData) return const LoadingView();
+          stream: (service ?? ActivityService()).watchTrips(user.uid),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return ErrorStateView(error: snapshot.error.toString());
+            }
+            if (!snapshot.hasData) return const LoadingView();
 
-                final trips = snapshot.data!;
-                if (trips.isEmpty) {
-                  return const EmptyStateView(
-                    icon: Icons.history_outlined,
-                    message: 'No trips yet. Start your first Safe Walk.',
-                  );
-                }
+            final trips = snapshot.data!;
+            if (trips.isEmpty) {
+              return const EmptyStateView(
+                icon: Icons.history_outlined,
+                message: 'No trips yet. Start your first Safe Walk.',
+              );
+            }
 
-                return ListView.builder(
-                  padding: AegisSpacing.list,
-                  itemCount: trips.length,
-                  itemBuilder: (context, index) {
-                    final trip = trips[index];
-                    return TripCard(
-                      trip: trip,
-                      onTap: () => TripDetailScreen.open(context, trip),
-                    );
-                  },
+            return ListView.builder(
+              padding: AegisSpacing.list,
+              itemCount: trips.length,
+              itemBuilder: (context, index) {
+                final trip = trips[index];
+                return TripCard(
+                  trip: trip,
+                  onTap: () => TripDetailScreen.open(context, trip),
                 );
               },
-            ),
+            );
+          },
+        ),
       ),
     );
   }
