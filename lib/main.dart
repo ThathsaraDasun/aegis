@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/activity/activity_feed_screen.dart';
 import 'screens/activity/recent_activity_preview.dart';
 import 'screens/activity/trip_history_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/route/compass_screen.dart';
@@ -460,7 +461,38 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-          const SizedBox(height: AegisSpacing.xl),
+          const SizedBox(height: AegisSpacing.md),
+
+          // ── Sign up link ───────────────────────────────────────
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                "Don't have an account?",
+                style: GoogleFonts.outfit(fontSize: 14, color: _inkMuted),
+              ),
+              TextButton(
+                onPressed: () => RegisterScreen.open(
+                  context,
+                  // After sign-up, open the dashboard just like a normal sign-in.
+                  onRegistered: () => Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                    (route) => false,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: _navyLight,
+                  padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.xs),
+                ),
+                child: Text(
+                  'Sign Up',
+                  style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AegisSpacing.md),
 
           // ── Footer ─────────────────────────────────────────────
           Row(
