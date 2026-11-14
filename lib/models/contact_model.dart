@@ -41,28 +41,33 @@ class ContactModel {
 
   Map<String, dynamic> toFirestore() => toMap();
 
-  factory ContactModel.fromMap(dynamic idOrMap, [Map<String, dynamic>? mapParam]) {
-    if (idOrMap is Map<String, dynamic>) {
-      final map = idOrMap;
-      final resolvedId = (map['contactId'] as String?) ?? (map['id'] as String?) ?? '';
-      return ContactModel(
-        id: resolvedId,
-        name: (map['name'] ?? '') as String,
-        phone: (map['phone'] ?? '') as String,
-        relation: (map['relation'] ?? '') as String,
-        isPrimary: (map['isPrimary'] ?? false) as bool,
-      );
-    } else {
-      final idStr = (idOrMap ?? '').toString();
-      final map = mapParam ?? {};
-      return ContactModel(
-        id: (map['contactId'] as String?) ?? idStr,
-        name: (map['name'] ?? '') as String,
-        phone: (map['phone'] ?? '') as String,
-        relation: (map['relation'] ?? '') as String,
-        isPrimary: (map['isPrimary'] ?? false) as bool,
-      );
+  factory ContactModel.fromMap(dynamic firstArg, [dynamic secondArg]) {
+    String resolvedId = '';
+    Map<String, dynamic> map = {};
+
+    if (firstArg is Map<String, dynamic>) {
+      map = firstArg;
+      if (secondArg is String) {
+        resolvedId = secondArg;
+      }
+    } else if (firstArg is String) {
+      resolvedId = firstArg;
+      if (secondArg is Map<String, dynamic>) {
+        map = secondArg;
+      }
     }
+
+    if (resolvedId.isEmpty) {
+      resolvedId = (map['contactId'] as String?) ?? (map['id'] as String?) ?? '';
+    }
+
+    return ContactModel(
+      id: resolvedId,
+      name: (map['name'] ?? '') as String,
+      phone: (map['phone'] ?? '') as String,
+      relation: (map['relation'] ?? '') as String,
+      isPrimary: (map['isPrimary'] ?? false) as bool,
+    );
   }
 
   ContactModel copyWith({

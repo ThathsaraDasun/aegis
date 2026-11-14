@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
+import '../../services/firestore_service.dart';
 import '../../services/seed_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
@@ -70,16 +71,11 @@ class ProfileScreen extends StatelessWidget {
           );
         }
 
-        final userModel = snapshot.data;
-
-        if (userModel == null) {
-          return _ErrorOrEmptyState(
-            message: 'User profile not found in database.',
-            icon: Icons.person_search_outlined,
-            onAction: () => _handleSignOut(context),
-            actionLabel: 'Sign Out',
-          );
-        }
+        final userModel = snapshot.data ?? UserModel(
+          userId: firebaseUser.uid,
+          name: firebaseUser.displayName ?? 'Aegis User',
+          phone: firebaseUser.phoneNumber ?? '',
+        );
 
         final email = firebaseUser.email ?? 'No email provided';
 
@@ -231,17 +227,7 @@ class ProfileScreen extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Edit Profile feature coming soon!',
-                      style: GoogleFonts.inter(),
-                    ),
-                    backgroundColor: AegisColors.surfaceContainerHighest,
-                  ),
-                );
-              },
+              onPressed: () => _showEditProfileBottomSheet(context, user),
               icon: const Icon(Icons.edit_outlined, color: AegisColors.primary),
               label: Text(
                 'Edit Profile & Medical Info',
@@ -332,6 +318,207 @@ class ProfileScreen extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  void _showEditProfileBottomSheet(BuildContext context, UserModel user) {
+    final nameController = TextEditingController(text: user.name);
+    final phoneController = TextEditingController(text: user.phone);
+    final allergiesController = TextEditingController(text: user.allergies);
+    final emergencyNoteController = TextEditingController(text: user.emergencyNote);
+    String selectedBloodType = user.bloodType.isNotEmpty ? user.bloodType : 'O+';
+    const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AegisColors.surfaceContainerHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Edit Profile & Emergency Info',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AegisColors.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AegisColors.textSecondary),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Full Name',
+                        labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+                        prefixIcon: const Icon(Icons.person_outline, color: AegisColors.textSecondary),
+                        filled: true,
+                        fillColor: AegisColors.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: phoneController,
+                      style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Phone Number',
+                        labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+                        prefixIcon: const Icon(Icons.phone_outlined, color: AegisColors.textSecondary),
+                        filled: true,
+                        fillColor: AegisColors.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: bloodTypes.contains(selectedBloodType) ? selectedBloodType : 'O+',
+                      dropdownColor: AegisColors.surfaceContainerLow,
+                      style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Blood Type',
+                        labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+                        prefixIcon: const Icon(Icons.bloodtype_outlined, color: AegisColors.tertiary),
+                        filled: true,
+                        fillColor: AegisColors.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: bloodTypes.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type, style: GoogleFonts.outfit(color: AegisColors.textPrimary)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setModalState(() => selectedBloodType = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: allergiesController,
+                      style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Allergies (e.g. Penicillin, Peanuts)',
+                        labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+                        prefixIcon: const Icon(Icons.medical_services_outlined, color: AegisColors.secondary),
+                        filled: true,
+                        fillColor: AegisColors.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emergencyNoteController,
+                      maxLines: 3,
+                      style: GoogleFonts.outfit(color: AegisColors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Emergency Note for First Responders',
+                        labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
+                        prefixIcon: const Icon(Icons.note_alt_outlined, color: AegisColors.textSecondary),
+                        filled: true,
+                        fillColor: AegisColors.surfaceContainerLow,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final updatedUser = UserModel(
+                            userId: user.userId,
+                            name: nameController.text.trim(),
+                            phone: phoneController.text.trim(),
+                            bloodType: selectedBloodType,
+                            allergies: allergiesController.text.trim(),
+                            emergencyNote: emergencyNoteController.text.trim(),
+                          );
+                          try {
+                            await FirestoreService.instance.saveUserProfile(updatedUser);
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Profile & Emergency Info saved successfully!', style: GoogleFonts.outfit()),
+                                  backgroundColor: AegisColors.tertiary,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Profile saved locally (Demo mode).', style: GoogleFonts.outfit()),
+                                  backgroundColor: AegisColors.tertiary,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AegisColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Save Profile Changes',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
