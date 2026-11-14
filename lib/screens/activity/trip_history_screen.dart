@@ -1,17 +1,17 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/trip_model.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
 import '../../widgets/trip_card.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
-const bool _useDummyData = true;
+const bool _useDummyData = false;
 
 /// A screen that displays a list of past trips for the current user.
 /// 
-/// Data is streamed live from the Firestore 'trips' collection.
+/// Data is streamed live from the Firestore 'trips' collection via [FirestoreService].
 class TripHistoryScreen extends StatelessWidget {
   const TripHistoryScreen({super.key});
 
@@ -33,12 +33,8 @@ class TripHistoryScreen extends StatelessWidget {
       return const _EmptyState(message: "Please sign in to view your history.");
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('trips')
-          .where('userId', isEqualTo: user.uid)
-          .orderBy('startedAt', descending: true)
-          .snapshots(),
+    return StreamBuilder<List<TripModel>>(
+      stream: FirestoreService.instance.streamTripHistory(user.uid),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _ErrorState(
@@ -57,17 +53,17 @@ class TripHistoryScreen extends StatelessWidget {
           );
         }
 
-        final docs = snapshot.data?.docs ?? [];
+        final trips = snapshot.data ?? [];
 
-        if (docs.isEmpty) {
+        if (trips.isEmpty) {
           return const _EmptyState();
         }
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: docs.length,
+          itemCount: trips.length,
           itemBuilder: (context, index) {
-            final trip = TripModel.fromFirestore(docs[index]);
+            final trip = trips[index];
             return TripCard(
               trip: trip,
               onTap: () {

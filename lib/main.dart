@@ -16,13 +16,17 @@ import 'widgets/trip_card.dart';
 import 'models/alert_model.dart';
 import 'models/trip_model.dart';
 import 'theme/aegis_theme.dart';
+import 'services/alert_service.dart';
+import 'services/firestore_service.dart';
+import 'services/route/position_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
+    await AlertService.instance.init();
   } catch (e) {
-    debugPrint('Firebase initialization warning: $e');
+    debugPrint('Initialization warning: $e');
   }
   runApp(const AegisApp());
 }
@@ -336,6 +340,45 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
     );
   }
 
+  Future<void> _triggerAlertHelper(String type) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final userId = user?.uid ?? 'demo_user';
+
+    final posResult = await PositionHelper.current(requestPermission: true);
+    final lat = posResult.position.latitude;
+    final lng = posResult.position.longitude;
+
+    String? tripId;
+    try {
+      final activeTrip = await FirestoreService.instance.streamActiveTrip(userId).first;
+      tripId = activeTrip?.tripId;
+    } catch (_) {}
+
+    final result = await AlertService.instance.triggerAlert(
+      userId: userId,
+      type: type,
+      lat: lat,
+      lng: lng,
+      tripId: tripId,
+    );
+
+    if (mounted) {
+      final isFall = (type == AlertType.fallDetected);
+      final label = isFall ? 'Fall Alert' : 'Panic SOS';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.smsOpened
+                ? '$label Triggered! SMS sent to ${result.contactCount} contact(s).'
+                : '$label Triggered! Alert recorded (ID: ${result.alertId}).',
+            style: GoogleFonts.outfit(),
+          ),
+          backgroundColor: AegisColors.secondary,
+        ),
+      );
+    }
+  }
+
   void _triggerCheckIn() {
     showDialog(
       context: context,
@@ -347,12 +390,7 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('SOS Alert Escalated! Emergency contacts dispatched.', style: GoogleFonts.outfit()),
-                  backgroundColor: AegisColors.secondary,
-                ),
-              );
+              _triggerAlertHelper(AlertType.fallDetected);
             },
             child: Text('Escalate SOS', style: GoogleFonts.outfit(color: AegisColors.secondary)),
           ),
@@ -618,14 +656,7 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
               children: [
                 Expanded(
                   child: InkWell(
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('SOS Beacon Triggered! Guardians & emergency services alerted.', style: GoogleFonts.outfit()),
-                          backgroundColor: AegisColors.secondary,
-                        ),
-                      );
-                    },
+                    onTap: () => _triggerAlertHelper(AlertType.manualSos),
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.all(16),
