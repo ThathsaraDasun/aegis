@@ -17,31 +17,31 @@ service cloud.firestore {
     }
 
     // Trips collection:
-    // - get: public (unguessable tripId acts as secret link for live tracking)
+    // Owner only until explicit guardian sharing is implemented.
     // - list: owner only
     // - create: signed-in user setting their own userId
     // - update/delete: owner only
     match /trips/{tripId} {
-      allow get: if true;
+      allow get: if request.auth != null && resource.data.userId == request.auth.uid;
       allow list: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-
-      match /{subcollection=**} {
-        allow read, write: if request.auth != null;
-      }
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // Alerts collection:
-    // - get: public (unguessable alertId acts as secret link)
+    // Owner only; alert IDs are not authorization tokens.
     // - list: owner only
     // - create: signed-in user setting their own userId
     // - update/delete: owner only
     match /alerts/{alertId} {
-      allow get: if true;
+      allow get: if request.auth != null && resource.data.userId == request.auth.uid;
       allow list: if request.auth != null && resource.data.userId == request.auth.uid;
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // Hazard reports collection:

@@ -319,7 +319,7 @@ class FirestoreService {
 
   Map<String, dynamic> _contactToMap(ContactModel contact) => contact.toMap();
   ContactModel _contactFromDoc(DocumentSnapshot doc) =>
-      ContactModel.fromMap((doc.data() as Map<String, dynamic>?) ?? {}, doc.id);
+      ContactModel.fromMap(doc.id, (doc.data() as Map<String, dynamic>?) ?? {});
 
   Map<String, dynamic> _tripToMap(TripModel trip) => trip.toMap();
   TripModel _tripFromDoc(DocumentSnapshot doc) => TripModel.fromFirestore(doc);

@@ -1,10 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
 import '../../services/seed_service.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
