@@ -19,7 +19,7 @@ class EmptyStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(AegisSpacing.xxxl),
+      padding: const EdgeInsets.all(AegisSpacing.xxl),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -32,7 +32,7 @@ class EmptyStateView extends StatelessWidget {
             const SizedBox(height: AegisSpacing.lg),
             Text(message, textAlign: TextAlign.center, style: AegisText.bodySecondary),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AegisSpacing.xxl),
+              const SizedBox(height: AegisSpacing.xl),
               ElevatedButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
@@ -52,7 +52,7 @@ class ErrorStateView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(AegisSpacing.xxxl),
+      padding: const EdgeInsets.all(AegisSpacing.xxl),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -63,7 +63,7 @@ class ErrorStateView extends StatelessWidget {
             const SizedBox(height: AegisSpacing.sm),
             Text(error, textAlign: TextAlign.center, style: AegisText.bodySecondary),
             if (onRetry != null) ...[
-              const SizedBox(height: AegisSpacing.xxl),
+              const SizedBox(height: AegisSpacing.xl),
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),

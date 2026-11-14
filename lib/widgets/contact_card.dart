@@ -34,10 +34,12 @@ class ContactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      margin: AegisSpacing.cardMargin,
       elevation: AegisElevation.none,
+      shape: AegisRadius.lgShape,
       child: InkWell(
         onTap: onTap,
-        borderRadius: AegisRadius.mdAll,
+        borderRadius: AegisRadius.lgAll,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.lg, vertical: AegisSpacing.md),
           child: Row(

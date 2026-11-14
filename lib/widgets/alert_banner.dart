@@ -32,17 +32,18 @@ class AlertBanner extends StatelessWidget {
     final Color alertColor = outcomeColor(alert);
 
     return Card(
+      margin: AegisSpacing.cardMargin,
       elevation: AegisElevation.medium,
       shadowColor: alertColor.withValues(alpha: 0.2),
       shape: RoundedRectangleBorder(
-        borderRadius: AegisRadius.mdAll,
+        borderRadius: AegisRadius.lgAll,
         side: BorderSide(color: alertColor.withValues(alpha: 0.3)),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: AegisRadius.mdAll,
+        borderRadius: AegisRadius.lgAll,
         child: ClipRRect(
-          borderRadius: AegisRadius.mdAll,
+          borderRadius: AegisRadius.lgAll,
           child: Container(
             decoration: BoxDecoration(
               border: Border(left: BorderSide(color: alertColor, width: 6)),

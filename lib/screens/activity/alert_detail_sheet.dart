@@ -55,9 +55,9 @@ class AlertDetailSheet extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-          AegisSpacing.xxl,
-          AegisSpacing.xxl,
-          AegisSpacing.xxl,
+          AegisSpacing.xl,
+          AegisSpacing.xl,
+          AegisSpacing.xl,
           AegisSpacing.lg,
         ),
         child: Column(

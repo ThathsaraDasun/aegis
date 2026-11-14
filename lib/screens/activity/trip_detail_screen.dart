@@ -107,7 +107,7 @@ class TripDetailScreen extends StatelessWidget {
               _LegendDot(color: AegisColors.primary, label: 'Destination'),
             ],
           ),
-          const SizedBox(height: AegisSpacing.xxl),
+          const SizedBox(height: AegisSpacing.xl),
 
           const SectionHeader('Summary'),
           Card(
@@ -133,7 +133,7 @@ class TripDetailScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AegisSpacing.xxl),
+          const SizedBox(height: AegisSpacing.xl),
 
           const SectionHeader('Alerts during this trip'),
           if (user == null)
@@ -157,7 +157,7 @@ class TripDetailScreen extends StatelessWidget {
                 );
               },
             ),
-          const SizedBox(height: AegisSpacing.xxl),
+          const SizedBox(height: AegisSpacing.xl),
 
           if (_hasStart && _hasDestination) ...[
             SizedBox(

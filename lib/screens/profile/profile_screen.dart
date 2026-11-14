@@ -127,14 +127,14 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AegisSpacing.xxl),
+          const SizedBox(height: AegisSpacing.xl),
 
           const SectionHeader('Emergency Medical Profile', color: AegisColors.primary),
           Card(
             margin: EdgeInsets.zero,
             elevation: AegisElevation.none,
             shape: RoundedRectangleBorder(
-              borderRadius: AegisRadius.mdAll,
+              borderRadius: AegisRadius.lgAll,
               side: BorderSide(color: AegisColors.primary.withValues(alpha: 0.3)),
             ),
             child: Padding(
@@ -176,14 +176,14 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AegisSpacing.xxl),
+          const SizedBox(height: AegisSpacing.xl),
 
           const SectionHeader('Activity'),
           Card(
             margin: EdgeInsets.zero,
             elevation: AegisElevation.none,
             child: ListTile(
-              shape: AegisRadius.mdShape,
+              shape: AegisRadius.lgShape,
               leading: const Icon(Icons.history_outlined, color: AegisColors.tertiary),
               title: Text('Trip History', style: AegisText.bodyStrong),
               subtitle: Text('Past walks and their routes', style: AegisText.small),
@@ -193,7 +193,7 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AegisSpacing.xxxl),
+          const SizedBox(height: AegisSpacing.xxl),
 
           SizedBox(
             width: double.infinity,

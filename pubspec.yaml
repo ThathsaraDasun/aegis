@@ -42,6 +42,10 @@ dependencies:
   geolocator: ^13.0.2
   google_maps_flutter: ^2.9.0
 
+  # Safe Route maps (Member 3) – OpenStreetMap tiles, no API key needed
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+
   # Utilities
   shared_preferences: ^2.3.5
   url_launcher: ^6.3.0

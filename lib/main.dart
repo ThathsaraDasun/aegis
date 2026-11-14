@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/activity/activity_feed_screen.dart';
 import 'screens/activity/recent_activity_preview.dart';
@@ -11,7 +14,6 @@ import 'screens/route/compass_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/aegis_theme.dart';
-import 'widgets/animated_logo.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +33,7 @@ class AegisApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aegis - Safe Walk',
       debugShowCheckedModeBanner: false,
-      theme: AegisTheme.dark,
+      theme: AegisTheme.dark(),
       home: SplashScreen(nextScreen: const AuthWrapper()),
     );
   }
@@ -137,121 +139,414 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  bool _obscurePassword = true;
+
+  // ── Login page palette (security: deep navy + Aegis safety orange) ──
+  static const Color _navyDeep = Color(0xFF0B1F3A);
+  static const Color _navy = Color(0xFF1A3A5C); // AegisColors.background
+  static const Color _navyLight = Color(0xFF24507F);
+  static const Color _pageBg = Color(0xFFF4F6FA);
+  static const Color _fieldBorder = Color(0xFFDDE3EC);
+  static const Color _ink = Color(0xFF14233A);
+  static const Color _inkMuted = Color(0xFF6B778A);
+  static const Color _orangeLight = Color(0xFFFF7A45);
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  /// Sends a Firebase password-reset email to the address typed above.
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (email.isEmpty || !email.contains('@')) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Enter your email address above first.')),
+      );
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Password reset link sent to $email')),
+      );
+    } on FirebaseAuthException catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Could not send reset email (${e.code}).')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not send reset email: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AegisColors.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.xxl),
-          child: Center(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Bigger logo; padding reduced by the same amount so the
-                  // overall space (104px) and the rest of the layout stay put.
-                  const AnimatedAegisLogo(size: 84, padding: 10, waveCount: 0),
-                  const SizedBox(height: AegisSpacing.xxl),
-                  Text(
-                    'AEGIS SAFE WALK',
-                    style: GoogleFonts.outfit(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: AegisColors.textPrimary,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // Light status-bar icons on the dark header.
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: _pageBg,
+        body: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            children: [
+              _buildHeader(context),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, t, child) => Opacity(
+                      opacity: t,
+                      child: Transform.translate(offset: Offset(0, 20 * (1 - t)), child: child),
                     ),
+                    child: _buildForm(),
                   ),
-                  const SizedBox(height: AegisSpacing.sm),
-                  Text(
-                    'Smart Safety & Guardian Network',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: AegisColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                  TextField(
-                    controller: _emailController,
-                    style: GoogleFonts.outfit(color: AegisColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Email Address',
-                      labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
-                      prefixIcon: const Icon(Icons.email_outlined, color: AegisColors.textSecondary),
-                      filled: true,
-                      fillColor: AegisColors.surfaceContainerHigh,
-                      border: OutlineInputBorder(
-                        borderRadius: AegisRadius.mdAll,
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AegisSpacing.lg),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    style: GoogleFonts.outfit(color: AegisColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
-                      prefixIcon: const Icon(Icons.lock_outline, color: AegisColors.textSecondary),
-                      filled: true,
-                      fillColor: AegisColors.surfaceContainerHigh,
-                      border: OutlineInputBorder(
-                        borderRadius: AegisRadius.mdAll,
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AegisSpacing.xxl),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AegisColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AegisRadius.mdAll,
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                              'Sign In',
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: AegisSpacing.lg),
-                  OutlinedButton(
-                    onPressed: _enterDemoMode,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AegisColors.primary, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AegisRadius.mdAll,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                    ),
-                    child: Text(
-                      'Explore App Demo Features',
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AegisColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Navy gradient header with a curved bottom edge.
+  Widget _buildHeader(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+    return ClipPath(
+      clipper: _CurvedHeaderClipper(),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+          AegisSpacing.xl,
+          topInset + AegisSpacing.xl,
+          AegisSpacing.xl,
+          56,
+        ),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_navyDeep, _navy, _navyLight],
+          ),
+        ),
+        child: Column(
+          children: [
+            const _FadingLogo(size: 80),
+            const SizedBox(height: AegisSpacing.md),
+            Text(
+              'AEGIS SAFE WALK',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 3,
+                color: Colors.white.withValues(alpha: 0.75),
+              ),
+            ),
+            const SizedBox(height: AegisSpacing.md),
+            Text(
+              'Welcome',
+              style: GoogleFonts.outfit(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: AegisSpacing.xs),
+            Text(
+              'Sign in to continue',
+              style: GoogleFonts.outfit(
+                fontSize: 15,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required IconData icon,
+    Widget? suffix,
+  }) {
+    const radius = BorderRadius.all(Radius.circular(AegisRadius.md));
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.outfit(color: _inkMuted, fontSize: 15),
+      prefixIcon: Icon(icon, color: _navyLight, size: 22),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AegisSpacing.lg, vertical: 18),
+      border: const OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: _fieldBorder),
+      ),
+      enabledBorder: const OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: _fieldBorder),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: _navyLight, width: 1.6),
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AegisSpacing.xl,
+        AegisSpacing.sm,
+        AegisSpacing.xl,
+        AegisSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Fields ─────────────────────────────────────────────
+          AutofillGroup(
+            child: Column(
+              children: [
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                  autofillHints: const [AutofillHints.email],
+                  style: GoogleFonts.outfit(color: _ink, fontSize: 15),
+                  cursorColor: _navyLight,
+                  decoration: _fieldDecoration(
+                    hint: 'Email address',
+                    icon: Icons.person_outline_rounded,
+                  ),
+                ),
+                const SizedBox(height: AegisSpacing.md),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const [AutofillHints.password],
+                  onSubmitted: (_) {
+                    if (!_isLoading) _handleLogin();
+                  },
+                  style: GoogleFonts.outfit(color: _ink, fontSize: 15),
+                  cursorColor: _navyLight,
+                  decoration: _fieldDecoration(
+                    hint: 'Password',
+                    icon: Icons.lock_outline_rounded,
+                    suffix: IconButton(
+                      tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: _inkMuted,
+                      ),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Forgot password ────────────────────────────────────
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _resetPassword,
+              style: TextButton.styleFrom(
+                foregroundColor: _navyLight,
+                padding: const EdgeInsets.symmetric(vertical: AegisSpacing.sm),
+              ),
+              child: Text(
+                'Forgot Password?',
+                style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(height: AegisSpacing.sm),
+
+          // ── Login (gradient) ───────────────────────────────────
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_orangeLight, AegisColors.primary],
+              ),
+              borderRadius: const BorderRadius.all(Radius.circular(AegisRadius.md)),
+              boxShadow: [
+                BoxShadow(
+                  color: AegisColors.primary.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  disabledBackgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(AegisRadius.md)),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                      )
+                    : Text(
+                        'Sign In',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AegisSpacing.xl),
+
+          // ── "or" divider ───────────────────────────────────────
+          Row(
+            children: [
+              const Expanded(child: Divider(color: _fieldBorder)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.md),
+                child: Text(
+                  'or continue with',
+                  style: GoogleFonts.outfit(fontSize: 13, color: _inkMuted),
+                ),
+              ),
+              const Expanded(child: Divider(color: _fieldBorder)),
+            ],
+          ),
+          const SizedBox(height: AegisSpacing.lg),
+
+          // ── Demo mode ──────────────────────────────────────────
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: _enterDemoMode,
+              icon: const Icon(Icons.explore_outlined, size: 20),
+              label: Text(
+                'Explore App Demo Features',
+                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _navy,
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: _fieldBorder, width: 1.2),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(AegisRadius.md)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AegisSpacing.xl),
+
+          // ── Footer ─────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.verified_user_outlined, size: 14, color: _inkMuted),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Your location is shared only with your trusted guardians.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(fontSize: 12, color: _inkMuted),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Clips the header into a gentle downward curve at the bottom.
+class _CurvedHeaderClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..lineTo(0, size.height - 40)
+      ..quadraticBezierTo(size.width / 2, size.height + 10, size.width, size.height - 40)
+      ..lineTo(size.width, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// The Aegis logo, fading in when the page opens and then gently fading
+/// out and back in. Stays still when the system "reduce motion" setting is on.
+class _FadingLogo extends StatefulWidget {
+  const _FadingLogo({required this.size});
+
+  final double size;
+
+  @override
+  State<_FadingLogo> createState() => _FadingLogoState();
+}
+
+class _FadingLogoState extends State<_FadingLogo> with TickerProviderStateMixin {
+  late final AnimationController _intro = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..forward();
+
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _intro.dispose();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = Image.asset(
+      'assets/logo/aegis_logo.png',
+      width: widget.size,
+      height: widget.size,
+      semanticLabel: 'Aegis logo',
+    );
+
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) return logo;
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([_intro, _pulse]),
+      builder: (context, child) {
+        final intro = Curves.easeOut.transform(_intro.value);
+        // Glides between 35% and 100% opacity and back each cycle.
+        final breath = 0.5 + 0.5 * math.cos(2 * math.pi * _pulse.value);
+        return Opacity(opacity: intro * (0.35 + 0.65 * breath), child: child);
+      },
+      child: logo,
     );
   }
 }
@@ -431,7 +726,7 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
               padding: const EdgeInsets.all(AegisSpacing.xl),
               decoration: BoxDecoration(
                 color: AegisColors.surfaceContainerHigh,
-                borderRadius: AegisRadius.xlAll,
+                borderRadius: AegisRadius.xxlAll,
                 border: Border.all(
                   color: _isTripActive ? AegisColors.tertiary : AegisColors.surfaceContainerHighest,
                   width: 2,
@@ -495,7 +790,7 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         backgroundColor: _isTripActive ? AegisColors.secondary : AegisColors.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: AegisRadius.mdAll,
+                          borderRadius: AegisRadius.lgAll,
                         ),
                       ),
                     ),
@@ -503,10 +798,10 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: AegisSpacing.xxl),
+            const SizedBox(height: AegisSpacing.xl),
             // Live unresolved alert + most recent trip
             const RecentActivityPreview(),
-            const SizedBox(height: AegisSpacing.xxl),
+            const SizedBox(height: AegisSpacing.xl),
             Text(
               'SAFETY SHORTCUTS',
               style: GoogleFonts.outfit(
@@ -527,12 +822,12 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         MaterialPageRoute(builder: (context) => const CompassScreen()),
                       );
                     },
-                    borderRadius: AegisRadius.lgAll,
+                    borderRadius: AegisRadius.xlAll,
                     child: Container(
                       padding: const EdgeInsets.all(AegisSpacing.lg),
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
-                        borderRadius: AegisRadius.lgAll,
+                        borderRadius: AegisRadius.xlAll,
                         border: Border.all(color: AegisColors.primary.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -558,12 +853,12 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                 Expanded(
                   child: InkWell(
                     onTap: _triggerCheckIn,
-                    borderRadius: AegisRadius.lgAll,
+                    borderRadius: AegisRadius.xlAll,
                     child: Container(
                       padding: const EdgeInsets.all(AegisSpacing.lg),
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
-                        borderRadius: AegisRadius.lgAll,
+                        borderRadius: AegisRadius.xlAll,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,12 +894,12 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         ),
                       );
                     },
-                    borderRadius: AegisRadius.lgAll,
+                    borderRadius: AegisRadius.xlAll,
                     child: Container(
                       padding: const EdgeInsets.all(AegisSpacing.lg),
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
-                        borderRadius: AegisRadius.lgAll,
+                        borderRadius: AegisRadius.xlAll,
                         border: Border.all(color: AegisColors.secondary.withValues(alpha: 0.5)),
                       ),
                       child: Column(
@@ -635,12 +930,12 @@ class _ActiveWalkDashboardScreenState extends State<ActiveWalkDashboardScreen> {
                         MaterialPageRoute(builder: (context) => const TripHistoryScreen()),
                       );
                     },
-                    borderRadius: AegisRadius.lgAll,
+                    borderRadius: AegisRadius.xlAll,
                     child: Container(
                       padding: const EdgeInsets.all(AegisSpacing.lg),
                       decoration: BoxDecoration(
                         color: AegisColors.surfaceContainerHigh,
-                        borderRadius: AegisRadius.lgAll,
+                        borderRadius: AegisRadius.xlAll,
                         border: Border.all(color: AegisColors.tertiary.withValues(alpha: 0.3)),
                       ),
                       child: Column(

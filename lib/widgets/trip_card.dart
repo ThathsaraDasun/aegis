@@ -57,9 +57,12 @@ class TripCard extends StatelessWidget {
     final duration = durationLabel(trip);
 
     return Card(
+      margin: AegisSpacing.cardMargin,
+      elevation: AegisElevation.low,
+      shape: AegisRadius.lgShape,
       child: InkWell(
         onTap: onTap,
-        borderRadius: AegisRadius.mdAll,
+        borderRadius: AegisRadius.lgAll,
         child: Padding(
           padding: AegisSpacing.card,
           child: Column(

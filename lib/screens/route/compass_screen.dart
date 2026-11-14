@@ -81,8 +81,8 @@ class _CompassScreenState extends State<CompassScreen> {
     _positionSubscription?.cancel();
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 0,
+        accuracy: LocationAccuracy.best, // නිරවද්‍යතාවය උපරිම කිරීම
+        distanceFilter: 0, // සෑම මීටරයකටම යාවත්කාලීන කිරීම
       ),
     ).listen((position) {
       if (mounted) setState(() => _currentPosition = position);
@@ -214,7 +214,7 @@ class _CompassScreenState extends State<CompassScreen> {
             const SizedBox(height: AegisSpacing.huge),
             Text(_getDistanceString(), style: AegisText.display),
             Text('REMAINING', style: AegisText.sectionHeader),
-            const SizedBox(height: AegisSpacing.xxl),
+            const SizedBox(height: AegisSpacing.xl),
             if (waiting)
               Text('Waiting for GPS and compass signal...', style: AegisText.bodySecondary),
             if (_errorMessage != null)
@@ -229,7 +229,7 @@ class _CompassScreenState extends State<CompassScreen> {
               textAlign: TextAlign.center,
               style: AegisText.small,
             ),
-            const SizedBox(height: AegisSpacing.xxl),
+            const SizedBox(height: AegisSpacing.xl),
             TextButton.icon(
               onPressed: _saveCurrentLocation,
               icon: const Icon(Icons.my_location),

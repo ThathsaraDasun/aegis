@@ -111,7 +111,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 return RegExp(r'^\+?[0-9 ]{7,15}$').hasMatch(value) ? null : 'Enter a valid phone number';
               },
             ),
-            const SizedBox(height: AegisSpacing.xxl),
+            const SizedBox(height: AegisSpacing.xl),
             const SectionHeader('Emergency Medical Info', color: AegisColors.primary),
             DropdownButtonFormField<String>(
               initialValue: _bloodType,
@@ -153,7 +153,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               'This information is shared with your trusted contacts during an active SOS.',
               style: AegisText.small,
             ),
-            const SizedBox(height: AegisSpacing.xxxl),
+            const SizedBox(height: AegisSpacing.xxl),
             SizedBox(
               width: double.infinity,
               height: AegisSizes.buttonHeight,
