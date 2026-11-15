@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import '../../services/safety/background_monitor.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/alert_service.dart';
 import '../trip/start_trip_screen.dart';
@@ -31,6 +33,10 @@ class _SafetyShellState extends State<SafetyShell> with WidgetsBindingObserver {
       SafetyController(
         motion: DeviceMotionFeed(),
         gateway: BackendSosGateway(),
+        backgroundMonitor:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+            ? BackgroundMonitor()
+            : null,
       );
   final _navigatorKey = GlobalKey<NavigatorState>();
 
@@ -146,7 +152,7 @@ class SafetyEventScreen extends StatelessWidget {
                     Text(
                       c.eventIsDemo
                           ? 'Practice only. No messages or database alerts will be created.'
-                          : 'When time runs out, an alert will be recorded and the SMS composer opened. Someone must tap Send; delivery is not automatic.',
+                          : 'When time runs out, open Aegis to prepare the alert. If Aegis is already open, preparation starts immediately. Someone must tap Send; delivery is not automatic.',
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
@@ -214,7 +220,9 @@ class SafetyEventScreen extends StatelessWidget {
                       SelectableText('Alert ID: ${c.result!.alertId}'),
                       if (c.result!.whatsAppLinks.isNotEmpty) ...[
                         const SizedBox(height: 16),
-                        const Text('Prefer WhatsApp? Close the SMS chooser and use a button below. Send separately to each guardian. Opening a chat does not send the message.'),
+                        const Text(
+                          'Prefer WhatsApp? Close the SMS chooser and use a button below. Send separately to each guardian. Opening a chat does not send the message.',
+                        ),
                         for (final link in c.result!.whatsAppLinks)
                           _WhatsAppButton(link: link),
                       ],
@@ -262,11 +270,19 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
   bool _opening = false;
   String? _notice;
   Future<void> _open() async {
-    setState(() { _opening = true; _notice = null; });
+    setState(() {
+      _opening = true;
+      _notice = null;
+    });
     bool opened = false;
     try {
-      opened = await launchUrl(widget.link.uri, mode: LaunchMode.externalApplication);
-    } catch (_) { /* Keep SMS available if WhatsApp cannot open. */ }
+      opened = await launchUrl(
+        widget.link.uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      /* Keep SMS available if WhatsApp cannot open. */
+    }
     if (!mounted) return;
     setState(() {
       _opening = false;
@@ -275,6 +291,7 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
           : 'Could not open WhatsApp. Use SMS or contact your guardian directly.';
     });
   }
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -282,7 +299,9 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
       OutlinedButton.icon(
         onPressed: _opening ? null : _open,
         icon: const Icon(Icons.chat_outlined),
-        label: Text('WhatsApp: ${widget.link.name.isEmpty ? 'Guardian' : widget.link.name}'),
+        label: Text(
+          'WhatsApp: ${widget.link.name.isEmpty ? 'Guardian' : widget.link.name}',
+        ),
       ),
       if (_notice != null) Text(_notice!),
     ],
@@ -303,7 +322,7 @@ class SafetyDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Keep this app open while monitoring. Locking the phone or switching apps stops monitoring and cancels a pending countdown.',
+          'On Android, enabled fall monitoring continues when you lock the phone or switch apps. Keep the protection notification enabled. Force-stopping or removing Aegis from recent apps stops protection.',
         ),
         const SizedBox(height: 20),
         Card(
@@ -312,12 +331,14 @@ class SafetyDashboard extends StatelessWidget {
               SwitchListTile(
                 title: const Text('Fall monitoring'),
                 subtitle: Text(
-                  c.monitoring
-                      ? 'Monitoring motion while the app is open'
+                  c.changingMonitoring
+                      ? 'Updating protection…'
+                      : c.monitoring
+                      ? 'Monitoring active — check the protection notification'
                       : 'Off',
                 ),
                 value: c.monitoring,
-                onChanged: c.setMonitoring,
+                onChanged: c.changingMonitoring ? null : c.setMonitoring,
               ),
               SwitchListTile(
                 title: const Text('Demo mode'),
@@ -325,7 +346,7 @@ class SafetyDashboard extends StatelessWidget {
                   'Lower shake threshold; automatic alerts are simulated. Real SOS stays real.',
                 ),
                 value: c.demo,
-                onChanged: c.setDemo,
+                onChanged: c.changingMonitoring ? null : c.setDemo,
               ),
             ],
           ),
@@ -337,13 +358,22 @@ class SafetyDashboard extends StatelessWidget {
             child: Semantics(liveRegion: true, child: Text(c.notice!)),
           ),
         FilledButton.icon(
-          onPressed: () => c.startCountdown(simulation: true),
+          onPressed: c.changingMonitoring
+              ? null
+              : () async {
+                  if (c.monitoring) await c.setMonitoring(false);
+                  c.startCountdown(simulation: true);
+                },
           icon: const Icon(Icons.science_outlined),
           label: const Text('Practice countdown (no alerts)'),
         ),
         const SizedBox(height: 12),
         const Text(
-          'For the sensor demo, enable Demo mode and Fall monitoring, then gently shake and rotate the phone. Do not drop it.',
+          'For the sensor demo, enable Demo mode and Fall monitoring, then gently shake and rotate the phone. Do not drop it. Practice countdown stops monitoring; enable it again afterwards.',
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'If a fall countdown ends while the phone is locked, a notification asks you to open Aegis. Nobody is contacted automatically yet. Background monitoring uses extra battery and may be stopped by Android battery controls.',
         ),
         const SizedBox(height: 20),
         const Text(
