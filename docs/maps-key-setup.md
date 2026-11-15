@@ -1,3 +1,5 @@
+> Superseded on feature/openstreetmap-trips: trip maps now use OpenStreetMap without a Maps key. These instructions apply only to older builds. Exposed keys still need revocation. See docs/openstreetmap-trips.md.
+
 # Google Maps key setup
 
 The Android Gradle project is in `android/`. Copy `android/secrets.defaults.properties` to `android/secrets.properties`, then replace the placeholder locally. Do not put a real key into either tracked defaults file. The root-level default is not the Android build configuration.

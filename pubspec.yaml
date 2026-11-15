@@ -40,7 +40,6 @@ dependencies:
   # Sensors & Location
   sensors_plus: ^6.1.1
   geolocator: ^13.0.2
-  google_maps_flutter: ^2.9.0
 
   # Safe Route maps (Member 3) – OpenStreetMap tiles, no API key needed
   flutter_map: ^8.2.2

@@ -151,7 +151,7 @@ arrival detection and recipient acknowledgements remain future integration work.
 On the Safety tab, use Start live trip to open the destination screen and then
 start a trip. Confirm Real SOS remains visible over the live map. The trip module
 still uses sample destination coordinates and foreground-only tracking; guardian
-viewing requires a separate sharing/rules implementation. Maps needs the local
-`android/secrets.properties` key documented in docs/maps-key-setup.md.
+viewing requires a separate sharing/rules implementation. The OpenStreetMap trip integration no longer needs a Maps API key; see
+docs/openstreetmap-trips.md for phone testing.
 
 Post-merge validation: 44 tests passed across SOS, authentication, backend alerts, routes, widgets and location model integration. Flutter analysis reported no issues. Phone testing remains pending.
