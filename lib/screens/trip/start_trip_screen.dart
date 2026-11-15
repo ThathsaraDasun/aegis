@@ -1,205 +1,249 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/trip_model.dart';
 import '../../services/location_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/location_permission_prompt.dart';
-import '../../theme/aegis_theme.dart';
 import 'live_map_screen.dart';
+import 'trip_map.dart';
+import 'destination_search_sheet.dart';
+import '../../services/destination_search_service.dart';
 
 class StartTripScreen extends StatefulWidget {
-  const StartTripScreen({super.key});
-
+  final FirestoreService? store;
+  final Future<LocationStatus> Function()? checkLocation;
+  final Future<Position> Function()? readPosition;
+  final String? Function()? currentUserId;
+  final Widget Function(String)? liveTripBuilder;
+  final TileProvider? tileProvider;
+  const StartTripScreen({
+    super.key,
+    this.store,
+    this.checkLocation,
+    this.readPosition,
+    this.currentUserId,
+    this.liveTripBuilder,
+    this.tileProvider,
+  });
   @override
   State<StartTripScreen> createState() => _StartTripScreenState();
 }
 
 class _StartTripScreenState extends State<StartTripScreen> {
-  final _destinationController = TextEditingController();
-  final _locationService = LocationService();
-  final _firestoreService = FirestoreService();
+  late final _store = widget.store ?? FirestoreService();
+  Future<LocationStatus> _checkLocation() =>
+      widget.checkLocation?.call() ?? LocationService().checkLocationStatus();
+  final _tripId = const Uuid().v4();
+  LocationStatus _status = LocationStatus.ready;
+  LatLng? _origin, _destination;
+  bool _loading = true, _starting = false;
+  String? _error;
+  final _mapController = MapController();
+  String? _destinationName;
 
-  LocationStatus _locationStatus = LocationStatus.ready;
-  bool _isCheckingStatus = true;
-  bool _isStartingTrip = false;
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchDestination() async {
+    final place = await showModalBottomSheet<DestinationPlace>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const FractionallySizedBox(
+        heightFactor: 0.85,
+        child: DestinationSearchSheet(),
+      ),
+    );
+    if (!mounted || place == null) return;
+    setState(() {
+      _destination = place.position;
+      _destinationName = place.name;
+      _error = null;
+    });
+    _mapController.move(place.position, 16);
+  }
 
   @override
   void initState() {
     super.initState();
-    _initLocationStatus();
+    _locate();
   }
 
-  Future<void> _initLocationStatus() async {
-    setState(() => _isCheckingStatus = true);
-    final status = await _locationService.checkLocationStatus();
-    if (mounted) {
-      setState(() {
-        _locationStatus = status;
-        _isCheckingStatus = false;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _destinationController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleStartTrip() async {
-    // 1. Final check for location readiness
-    final status = await _locationService.checkLocationStatus();
-    if (status != LocationStatus.ready) {
-      if (mounted) setState(() => _locationStatus = status);
-      return;
-    }
-
-    setState(() => _isStartingTrip = true);
-
-    try {
-      // 2. Get current position for startLocation
-      final position = await Geolocator.getCurrentPosition();
-      final startGeoPoint = {
-        'lat': position.latitude,
-        'lng': position.longitude,
-      };
-
-      // 3. Define destination
-      // ASSUMPTION: For MVP, we use a simple dummy destination 0.01 degrees away (~1.1km)
-      // since full places-autocomplete is out of scope.
-      final destinationGeoPoint = {
-        'lat': position.latitude + 0.01,
-        'lng': position.longitude + 0.01,
-      };
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception("User not authenticated");
-
-      // 4. Create TripModel
-      final newTrip = TripModel(
-        tripId: '', // Set by Firestore
-        userId: user.uid,
-        status: 'active',
-        startLocation: startGeoPoint,
-        currentLocation: startGeoPoint,
-        destination: destinationGeoPoint,
-        startedAt: DateTime.now(),
+  Future<Position> _position() =>
+      widget.readPosition?.call() ??
+      Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 30),
+        ),
       );
 
-      // 5. Save to Firestore
-      final tripId = await _firestoreService.createTrip(newTrip);
-
-      // 6. Navigate to Live Map
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => LiveMapScreen(tripId: tripId)),
-        );
+  Future<void> _locate() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final status = await _checkLocation();
+      if (!mounted) return;
+      _status = status;
+      if (status == LocationStatus.ready) {
+        final p = await _position();
+        if (!mounted) return;
+        _origin = LatLng(p.latitude, p.longitude);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error starting trip: $e')));
+        _error = e is TimeoutException
+            ? 'GPS did not return a position within 30 seconds. Enable precise location, move near a window or outdoors, then retry.'
+            : 'Could not get your location (${e.runtimeType}): $e';
       }
     } finally {
-      if (mounted) setState(() => _isStartingTrip = false);
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _start() async {
+    if (_starting || _destination == null) return;
+    setState(() {
+      _starting = true;
+      _error = null;
+    });
+    try {
+      final status = await _checkLocation();
+      if (!mounted) return;
+      if (status != LocationStatus.ready) {
+        setState(() => _status = status);
+        return;
+      }
+      final p = await _position();
+      if (!mounted) return;
+      final uid = widget.currentUserId != null
+          ? widget.currentUserId!()
+          : FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw StateError('Sign in before starting a trip.');
+      final destination = _destination!;
+      final id = await _store
+          .createTrip(
+            TripModel(
+              tripId: _tripId,
+              userId: uid,
+              status: TripStatus.active,
+              startLocation: {'lat': p.latitude, 'lng': p.longitude},
+              currentLocation: {'lat': p.latitude, 'lng': p.longitude},
+              destination: {
+                'lat': destination.latitude,
+                'lng': destination.longitude,
+              },
+              startedAt: DateTime.now(),
+            ),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) =>
+                widget.liveTripBuilder?.call(id) ?? LiveMapScreen(tripId: id),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not start trip: $e');
+    } finally {
+      if (mounted) setState(() => _starting = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Start New Trip'), centerTitle: true),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isCheckingStatus) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_locationStatus != LocationStatus.ready) {
-      return LocationPermissionPrompt(
-        status: _locationStatus,
-        onRetry: _initLocationStatus,
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Icon(Icons.map_outlined, size: 80, color: AegisColors.primary),
-          const SizedBox(height: 24),
-          const Text(
-            'Ready to start your walk?',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Choose your destination')),
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _status != LocationStatus.ready
+        ? LocationPermissionPrompt(status: _status, onRetry: _locate)
+        : _origin == null
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error ?? 'Location unavailable'),
+                TextButton(onPressed: _locate, child: const Text('Retry')),
+                TextButton(
+                  onPressed: Geolocator.openLocationSettings,
+                  child: const Text('Open location settings'),
+                ),
+                TextButton(
+                  onPressed: Geolocator.openAppSettings,
+                  child: const Text('Open app permissions'),
+                ),
+              ],
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Start a foreground trip to save your location while this screen is open.',
-            style: TextStyle(color: AegisColors.textSecondary),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 40),
-          TextField(
-            controller: _destinationController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Destination Name',
-              hintText: 'e.g. Home, Library, Station',
-              prefixIcon: const Icon(Icons.place, color: AegisColors.secondary),
-              filled: true,
-              fillColor: AegisColors.surfaceContainerHigh,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Note: MVP uses a dummy destination based on current location.',
-            style: TextStyle(
-              fontSize: 12,
-              color: AegisColors.textSecondary,
-              fontStyle: FontStyle.italic,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const Spacer(),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _isStartingTrip ? null : _handleStartTrip,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AegisColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          )
+        : Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: OutlinedButton.icon(
+                  onPressed: _starting ? null : _searchDestination,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search for a shop, school or address'),
                 ),
               ),
-              child: _isStartingTrip
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      'START TRIP',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Tap the map to choose a destination. Internet is needed for map tiles.',
+                ),
+              ),
+              Expanded(
+                child: TripMap(
+                  center: _origin!,
+                  controller: _mapController,
+                  tileProvider: widget.tileProvider,
+                  current: _origin,
+                  destination: _destination,
+                  onTap: _starting
+                      ? null
+                      : (point) => setState(() {
+                          _destination = point;
+                          _destinationName = null;
+                        }),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  _destination == null
+                      ? 'Select a destination to continue.'
+                      : _destinationName ??
+                            'Destination: ${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_error != null)
+                Padding(padding: const EdgeInsets.all(8), child: Text(_error!)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 160),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _starting || _destination == null
+                        ? null
+                        : _start,
+                    child: Text(_starting ? 'Starting trip…' : 'Start trip'),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+  );
 }
