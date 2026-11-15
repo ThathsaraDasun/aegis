@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../services/alert_service.dart';
 import '../trip/start_trip_screen.dart';
 import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
@@ -201,7 +203,7 @@ class SafetyEventScreen extends StatelessWidget {
                     else ...[
                       Text(
                         c.result!.smsOpened
-                            ? 'SMS composer opened. Tap Send in your messaging app to send the message. Delivery has not been confirmed.'
+                            ? 'SMS option opened. Choose Messages or Messaging, not WhatsApp, in the chooser. Tap Send yourself. Delivery has not been confirmed.'
                             : c.result!.dialerOpened
                             ? 'Phone dialer opened. You must start the call yourself.'
                             : c.result!.contactCount == 0
@@ -210,6 +212,12 @@ class SafetyEventScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       SelectableText('Alert ID: ${c.result!.alertId}'),
+                      if (c.result!.whatsAppLinks.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text('Prefer WhatsApp? Close the SMS chooser and use a button below. Send separately to each guardian. Opening a chat does not send the message.'),
+                        for (final link in c.result!.whatsAppLinks)
+                          _WhatsAppButton(link: link),
+                      ],
                       const SizedBox(height: 12),
                       if (c.resolved)
                         const Text('Marked resolved in your activity log.')
@@ -241,6 +249,44 @@ class SafetyEventScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WhatsAppButton extends StatefulWidget {
+  final GuardianWhatsAppLink link;
+  const _WhatsAppButton({required this.link});
+  @override
+  State<_WhatsAppButton> createState() => _WhatsAppButtonState();
+}
+
+class _WhatsAppButtonState extends State<_WhatsAppButton> {
+  bool _opening = false;
+  String? _notice;
+  Future<void> _open() async {
+    setState(() { _opening = true; _notice = null; });
+    bool opened = false;
+    try {
+      opened = await launchUrl(widget.link.uri, mode: LaunchMode.externalApplication);
+    } catch (_) { /* Keep SMS available if WhatsApp cannot open. */ }
+    if (!mounted) return;
+    setState(() {
+      _opening = false;
+      _notice = opened
+          ? 'WhatsApp link opened. Check the recipient and tap Send. Delivery is not confirmed.'
+          : 'Could not open WhatsApp. Use SMS or contact your guardian directly.';
+    });
+  }
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      OutlinedButton.icon(
+        onPressed: _opening ? null : _open,
+        icon: const Icon(Icons.chat_outlined),
+        label: Text('WhatsApp: ${widget.link.name.isEmpty ? 'Guardian' : widget.link.name}'),
+      ),
+      if (_notice != null) Text(_notice!),
+    ],
+  );
 }
 
 class SafetyDashboard extends StatelessWidget {

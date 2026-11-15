@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -10,6 +11,8 @@ import '../../services/firestore_service.dart';
 import '../../widgets/location_permission_prompt.dart';
 import 'live_map_screen.dart';
 import 'trip_map.dart';
+import 'destination_search_sheet.dart';
+import '../../services/destination_search_service.dart';
 
 class StartTripScreen extends StatefulWidget {
   final FirestoreService? store;
@@ -40,6 +43,33 @@ class _StartTripScreenState extends State<StartTripScreen> {
   LatLng? _origin, _destination;
   bool _loading = true, _starting = false;
   String? _error;
+  final _mapController = MapController();
+  String? _destinationName;
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchDestination() async {
+    final place = await showModalBottomSheet<DestinationPlace>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const FractionallySizedBox(
+        heightFactor: 0.85,
+        child: DestinationSearchSheet(),
+      ),
+    );
+    if (!mounted || place == null) return;
+    setState(() {
+      _destination = place.position;
+      _destinationName = place.name;
+      _error = null;
+    });
+    _mapController.move(place.position, 16);
+  }
 
   @override
   void initState() {
@@ -52,7 +82,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
       Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          timeLimit: Duration(seconds: 30),
         ),
       );
 
@@ -70,9 +100,11 @@ class _StartTripScreenState extends State<StartTripScreen> {
         if (!mounted) return;
         _origin = LatLng(p.latitude, p.longitude);
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        _error = 'Could not get your location. Check GPS and try again.';
+        _error = e is TimeoutException
+            ? 'GPS did not return a position within 30 seconds. Enable precise location, move near a window or outdoors, then retry.'
+            : 'Could not get your location (${e.runtimeType}): $e';
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -144,11 +176,27 @@ class _StartTripScreenState extends State<StartTripScreen> {
               children: [
                 Text(_error ?? 'Location unavailable'),
                 TextButton(onPressed: _locate, child: const Text('Retry')),
+                TextButton(
+                  onPressed: Geolocator.openLocationSettings,
+                  child: const Text('Open location settings'),
+                ),
+                TextButton(
+                  onPressed: Geolocator.openAppSettings,
+                  child: const Text('Open app permissions'),
+                ),
               ],
             ),
           )
         : Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: OutlinedButton.icon(
+                  onPressed: _starting ? null : _searchDestination,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search for a shop, school or address'),
+                ),
+              ),
               const Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(
@@ -158,12 +206,16 @@ class _StartTripScreenState extends State<StartTripScreen> {
               Expanded(
                 child: TripMap(
                   center: _origin!,
+                  controller: _mapController,
                   tileProvider: widget.tileProvider,
                   current: _origin,
                   destination: _destination,
                   onTap: _starting
                       ? null
-                      : (point) => setState(() => _destination = point),
+                      : (point) => setState(() {
+                          _destination = point;
+                          _destinationName = null;
+                        }),
                 ),
               ),
               Padding(
@@ -171,7 +223,10 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 child: Text(
                   _destination == null
                       ? 'Select a destination to continue.'
-                      : 'Destination: ${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
+                      : _destinationName ??
+                            'Destination: ${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (_error != null)

@@ -177,7 +177,11 @@ class SafetyController extends ChangeNotifier {
       phase = SafetyPhase.finished;
     } catch (e) {
       if (_disposed) return;
-      error = e is SafetyException ? e.message : authErrorMessage(e);
+      error = e is SafetyException
+          ? e.message
+          : e is AlertOperationException
+          ? e.message
+          : authErrorMessage(e);
       phase = SafetyPhase.failed;
     }
     _notify();

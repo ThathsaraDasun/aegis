@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:aegis/models/alert_model.dart';
 import 'package:aegis/models/contact_model.dart';
 import 'package:aegis/models/user_model.dart';
@@ -8,14 +9,38 @@ import 'package:flutter_test/flutter_test.dart';
 class FakeStore implements FirestoreService {
   final alerts = <String, AlertModel>{};
   bool failWrite = false;
+  String? deniedStage;
   List<ContactModel> contacts = [];
   @override
-  Future<UserModel?> getUserProfile(String uid) async =>
-      UserModel(userId: uid, name: 'Test Walker', phone: '');
+  Future<UserModel?> getUserProfile(String uid) async {
+    if (deniedStage == 'profile') {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+    }
+    return UserModel(userId: uid, name: 'Test Walker', phone: '');
+  }
+
   @override
-  Future<List<ContactModel>> getContacts(String uid) async => contacts;
+  Future<List<ContactModel>> getContacts(String uid) async {
+    if (deniedStage == 'contacts') {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+    }
+    return contacts;
+  }
+
   @override
   Future<String> createAlert(AlertModel alert) async {
+    if (deniedStage == 'alert') {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+    }
     if (failWrite) throw StateError('permission denied');
     alerts[alert.alertId] = alert;
     return alert.alertId;
@@ -28,6 +53,17 @@ class FakeStore implements FirestoreService {
 }
 
 void main() {
+  test('WhatsApp uses international digits and preserves the complete message', () {
+    const message = 'SOS & help\nLocation: https://maps.google.com/?q=6.9,79.8';
+    for (final number in ['0771234567', '+94 (77) 123-4567', '0094771234567']) {
+      final uri = AlertService.whatsAppUri(number, message)!;
+      expect(uri.host, 'wa.me');
+      expect(uri.path, '/94771234567');
+      expect(uri.queryParameters['text'], message);
+    }
+    expect(AlertService.whatsAppUri('+94771234567,+94777654321', message), isNull);
+    expect(AlertService.whatsAppUri('1234567', message), isNull);
+  });
   group('Backend handoff', () {
     late FakeStore store;
     late List<Uri> launches;
@@ -56,6 +92,41 @@ void main() {
       lng: 79.8,
       requestId: 'event-1',
     );
+    test('WhatsApp offers separate real guardians without automatically opening chats', () async {
+      store.contacts = [
+        ContactModel(id: 'one', name: 'One', phone: '0771234567', relation: ''),
+        ContactModel(id: 'two', name: 'Two', phone: '+94777654321', relation: ''),
+        ContactModel(id: 'duplicate', name: 'Duplicate', phone: '+94771234567', relation: ''),
+        ContactModel(id: 'demo_fake', name: 'Demo', phone: '+94770000000', relation: ''),
+      ];
+      final result = await trigger();
+      expect(result.whatsAppLinks.map((link) => link.name), ['One', 'Two']);
+      expect(result.whatsAppLinks.map((link) => link.uri.path), ['/94771234567', '/94777654321']);
+      expect(result.whatsAppLinks.first.uri.queryParameters['text'], contains('Manual SOS activated'));
+      expect(launches.single.scheme, 'sms');
+      expect(store.alerts.length, 1);
+    });
+    for (final entry in {
+      'profile': 'reading your profile',
+      'contacts': 'reading your guardian contacts',
+      'alert': 'saving your SOS alert',
+    }.entries) {
+      test(
+        'permission failure identifies ${entry.key} and never launches contact apps',
+        () async {
+          store.deniedStage = entry.key;
+          await expectLater(
+            trigger(),
+            throwsA(
+              isA<AlertOperationException>()
+                  .having((e) => e.operation, 'operation', entry.value)
+                  .having((e) => e.code, 'code', 'permission-denied'),
+            ),
+          );
+          expect(launches, isEmpty);
+        },
+      );
+    }
     test('composer opening is not described as sent; ID is stable', () async {
       store.contacts = [
         ContactModel(

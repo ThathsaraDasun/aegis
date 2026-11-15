@@ -6,17 +6,38 @@ import '../models/alert_model.dart';
 import '../models/contact_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
+import 'contacts_service.dart';
+
+class GuardianWhatsAppLink {
+  final String name;
+  final Uri uri;
+  const GuardianWhatsAppLink(this.name, this.uri);
+}
+
+/// Identifies the failed SOS operation without exposing profile/contact data.
+class AlertOperationException implements Exception {
+  final String operation;
+  final String code;
+  const AlertOperationException(this.operation, this.code);
+  String get message => code == 'permission-denied'
+      ? 'Database access denied while $operation (permission-denied). Contact the team with this message.'
+      : code == 'timeout'
+      ? 'Timed out while $operation. Check your connection and retry.'
+      : 'Could not complete $operation ($code). Please retry.';
+}
 
 class AlertTriggerResult {
   final String alertId;
   final int contactCount;
   final bool smsOpened;
   final bool dialerOpened;
+  final List<GuardianWhatsAppLink> whatsAppLinks;
   const AlertTriggerResult({
     required this.alertId,
     required this.contactCount,
     required this.smsOpened,
     required this.dialerOpened,
+    this.whatsAppLinks = const [],
   });
 }
 
@@ -76,29 +97,35 @@ class AlertService {
       throw ArgumentError('Invalid alert type or coordinates');
     }
     // Fail visibly on denied/network reads; do not silently treat an error as no contacts.
-    final user = await _firestoreService
-        .getUserProfile(userId)
-        .timeout(const Duration(seconds: 8));
-    final contacts =
-        (await _firestoreService
-                .getContacts(userId)
-                .timeout(const Duration(seconds: 8)))
-            .where((c) => !c.id.startsWith('demo_') && _phone(c).isNotEmpty)
-            .toList();
+    final user = await _databaseStep(
+      'reading your profile',
+      () => _firestoreService
+          .getUserProfile(userId)
+          .timeout(const Duration(seconds: 8)),
+    );
+    final contacts = (await _databaseStep(
+      'reading your guardian contacts',
+      () => _firestoreService
+          .getContacts(userId)
+          .timeout(const Duration(seconds: 8)),
+    )).where((c) => !c.id.startsWith('demo_') && _phone(c).isNotEmpty).toList();
     final phones = contacts.map(_phone).toSet().toList();
     _checkUser(userId);
-    final alertId = await _firestoreService
-        .createAlert(
-          AlertModel(
-            alertId: requestId ?? '',
-            tripId: tripId ?? '',
-            userId: userId,
-            type: type,
-            location: {'lat': lat, 'lng': lng},
-            triggeredAt: DateTime.now(),
-          ),
-        )
-        .timeout(const Duration(seconds: 10));
+    final alertId = await _databaseStep(
+      'saving your SOS alert',
+      () => _firestoreService
+          .createAlert(
+            AlertModel(
+              alertId: requestId ?? '',
+              tripId: tripId ?? '',
+              userId: userId,
+              type: type,
+              location: {'lat': lat, 'lng': lng},
+              triggeredAt: DateTime.now(),
+            ),
+          )
+          .timeout(const Duration(seconds: 10)),
+    );
     if (tripId != null && tripId.isNotEmpty) {
       try {
         await _firestoreService
@@ -111,14 +138,10 @@ class AlertService {
     _checkUser(userId);
     bool smsOpened = false;
     bool dialerOpened = false;
+    final message = buildMessage(
+      user: user, type: type, lat: lat, lng: lng, tripId: tripId,
+    );
     if (phones.isNotEmpty) {
-      final message = buildMessage(
-        user: user,
-        type: type,
-        lat: lat,
-        lng: lng,
-        tripId: tripId,
-      );
       try {
         smsOpened = await _launch(
           Uri.parse(
@@ -147,7 +170,28 @@ class AlertService {
       contactCount: phones.length,
       smsOpened: smsOpened,
       dialerOpened: dialerOpened,
+      whatsAppLinks: List.unmodifiable([
+        for (final phone in phones)
+          if (whatsAppUri(phone, message) case final Uri uri)
+            GuardianWhatsAppLink(
+              contacts.firstWhere((c) => _phone(c) == phone).name,
+              uri,
+            ),
+      ]),
     );
+  }
+
+  Future<T> _databaseStep<T>(
+    String operation,
+    Future<T> Function() action,
+  ) async {
+    try {
+      return await action();
+    } on FirebaseException catch (e) {
+      throw AlertOperationException(operation, e.code);
+    } on TimeoutException {
+      throw AlertOperationException(operation, 'timeout');
+    }
   }
 
   void _checkUser(String uid) {
@@ -157,8 +201,17 @@ class AlertService {
   }
 
   static String _phone(ContactModel contact) {
-    final phone = contact.phone.replaceAll(RegExp(r'[\s()-]'), '');
+    final phone = ContactsService.normalizePhone(contact.phone);
     return RegExp(r'^\+?[0-9]{7,15}$').hasMatch(phone) ? phone : '';
+  }
+
+  /// WhatsApp takes one international number, not an SMS recipient list.
+  static Uri? whatsAppUri(String rawPhone, String message) {
+    final phone = ContactsService.normalizePhone(rawPhone);
+    if (!RegExp(r'^\+[1-9][0-9]{6,14}$').hasMatch(phone)) return null;
+    return Uri.parse(
+      'https://wa.me/${phone.substring(1)}?text=${Uri.encodeComponent(message)}',
+    );
   }
 
   String buildMessage({

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:aegis/models/trip_model.dart';
 import 'package:aegis/screens/trip/start_trip_screen.dart';
@@ -99,6 +100,34 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('GPS timeout explains recovery and allows retry', (tester) async {
+    final store = _Store();
+    var attempts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StartTripScreen(
+          store: store,
+          checkLocation: () async => LocationStatus.ready,
+          readPosition: () async {
+            if (++attempts == 1) throw TimeoutException('no GPS');
+            return _position();
+          },
+          tileProvider: _Tiles(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('GPS did not return a position'),
+      findsOneWidget,
+    );
+    expect(find.text('Open location settings'), findsOneWidget);
+    expect(find.text('Open app permissions'), findsOneWidget);
+    expect(store.saved, isNull);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TripMap), findsOneWidget);
+  });
   testWidgets('denied permission does not open a map or create a trip', (
     tester,
   ) async {

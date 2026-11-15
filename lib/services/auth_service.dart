@@ -85,7 +85,7 @@ String authErrorMessage(Object error) {
       'network-request-failed' || 'unavailable' =>
         'Unable to connect. Check your internet connection and try again.',
       'permission-denied' =>
-        'Your profile could not be accessed. Contact the team to check database permissions.',
+        'Database access was denied. Contact the team to check account and database permissions.',
       'operation-not-allowed' =>
         'Email/password sign-in is not enabled for this app.',
       _ => 'Something went wrong. Please try again.',

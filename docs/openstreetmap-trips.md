@@ -11,7 +11,19 @@ No Google Maps API key, billing account or secrets.properties is required for tr
 5. Verify Real SOS remains accessible. Use consenting contacts for real alerts.
 6. Tap I have arrived safely and check that the trip ends. Also test denied permission, GPS off and network failures.
 
-The viewer uses the same renderer but still obeys owner-only Firestore rules; this does not implement guardian authorization. Tracking is foreground-only. The blue trail is retained for this screen session, not saved route history. Map-tap selection is supported; address search and turn-by-turn navigation are not included.
+The viewer uses the same renderer but still obeys owner-only Firestore rules; this does not implement guardian authorization. Tracking is foreground-only. The blue trail is retained for this screen session, not saved route history. Destination search and map-tap selection are supported; turn-by-turn navigation is not included.
+
+## Destination search
+
+Tap Search for a shop, school or address, enter a name and town, and press Search. Choose a result and check its pin before starting. Only the destination coordinates are saved in the trip. Search does not calculate a walking route.
+
+Search uses Nominatim without an API key. Explicit submissions only (no autocomplete), an identified User-Agent, an in-memory cache of up to 100 queries, and a minimum 1.1 seconds between requests on this app instance reduce load. This per-device throttle is not an aggregate multi-user limit: before wider distribution use a provider/proxy that enforces the provider's total usage limits. Public hosting is best-effort for light demonstration use. Search text is sent to the provider; GPS coordinates are not included in the search request. Results depend on OSM coverage.
+
+The endpoint can be replaced at build time with `--dart-define=DESTINATION_SEARCH_URL=https://your-provider/search` (Nominatim-compatible JSON required). No search requests are sent while typing. Users can cancel, retry, or use map pins if search is unavailable.
+
+Policy: https://operations.osmfoundation.org/policies/nominatim/
+
+Destination-search changes have not been run through tests or a device build yet; test runs were skipped at the user's request.
 
 ## Tile service
 
