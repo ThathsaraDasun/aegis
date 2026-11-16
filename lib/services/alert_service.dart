@@ -4,10 +4,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/alert_model.dart';
 import '../models/contact_model.dart';
+import '../models/trip_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
 import 'contacts_service.dart';
 import 'automatic_sms_service.dart';
+import 'live_share_link.dart';
+import 'share_token.dart';
 
 class GuardianWhatsAppLink {
   final String name;
@@ -133,10 +136,25 @@ class AlertService {
           )
           .timeout(const Duration(seconds: 10)),
     );
+    // The guardian link is optional: without it the SMS still has the static map link.
+    String? shareToken;
     if (tripId != null && tripId.isNotEmpty) {
       try {
+        final trip = await _firestoreService
+            .getTrip(tripId)
+            .timeout(const Duration(seconds: 3));
+        if (trip != null &&
+            trip.endedAt == null &&
+            trip.status != TripStatus.completed &&
+            ShareToken.isValid(trip.shareToken)) {
+          shareToken = trip.shareToken;
+        }
+      } catch (_) {
+        /* Fall back to the static location link. */
+      }
+      try {
         await _firestoreService
-            .markTripAlerted(tripId)
+            .markTripAlerted(tripId, shareToken: shareToken)
             .timeout(const Duration(seconds: 3));
       } catch (_) {
         /* The alert remains usable even if the optional trip update fails. */
@@ -151,6 +169,7 @@ class AlertService {
       lat: lat,
       lng: lng,
       tripId: tripId,
+      shareToken: shareToken,
     );
     String? automaticSmsMessage;
     if (phones.isNotEmpty && AutomaticSmsService.enabled) {
@@ -254,6 +273,7 @@ class AlertService {
     required double lat,
     required double lng,
     String? tripId,
+    String? shareToken,
   }) {
     final buffer = StringBuffer('SAFE WALK ALERT\n');
     buffer.writeln(
@@ -267,7 +287,11 @@ class AlertService {
     buffer.writeln(
       'Location at alert time: https://maps.google.com/?q=$lat,$lng',
     );
-    // Do not advertise a live viewer until a real authorized viewer is deployed.
+    if (ShareToken.isValid(shareToken)) {
+      buffer.writeln(
+        'Live location (Aegis app): ${LiveShareLink.build(shareToken!)}',
+      );
+    }
     if (user != null) {
       if (user.bloodType.isNotEmpty) {
         buffer.writeln('Blood type: ${user.bloodType}');
