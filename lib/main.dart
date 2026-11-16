@@ -70,8 +70,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ProfileScreen(),
     RouteComparisonScreen(),
   ];
+  // Back on another tab returns to the Safety tab before leaving the app.
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => PopScope(
+    canPop: _index == 0,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) setState(() => _index = 0);
+    },
+    child: _buildScaffold(context),
+  );
+
+  Widget _buildScaffold(BuildContext context) => Scaffold(
     appBar: AppBar(
       backgroundColor: const Color(0xFF007FFF),
       foregroundColor: Colors.white,
