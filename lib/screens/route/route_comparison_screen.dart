@@ -21,7 +21,8 @@ import 'widgets/safety_score_ring.dart';
 
 /// Called when the user picks a route – Member 2 can hook this into the
 /// Start Trip flow (destination + route polyline).
-typedef RouteChosenCallback = void Function(CandidateRoute route, RouteSafetyScore score);
+typedef RouteChosenCallback =
+    void Function(CandidateRoute route, RouteSafetyScore score);
 
 /// Safe Route: live OpenStreetMap map + two candidate walking routes side by side with
 /// explainable safety scores (crowd-sourced hazards + OSM street lighting).
@@ -31,14 +32,21 @@ class RouteComparisonScreen extends StatefulWidget {
   /// Optional preset destination (skips the "pick a place" step).
   final LatLng? destination;
 
-  const RouteComparisonScreen({super.key, this.onRouteChosen, this.destination});
+  const RouteComparisonScreen({
+    super.key,
+    this.onRouteChosen,
+    this.destination,
+  });
 
   @override
   State<RouteComparisonScreen> createState() => _RouteComparisonScreenState();
 }
 
 class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
-  static const List<Color> _routeColors = [AegisColors.primary, AegisColors.accent];
+  static const List<Color> _routeColors = [
+    AegisColors.primary,
+    AegisColors.accent,
+  ];
 
   final RouteSafetyService _safety = RouteSafetyService();
   final RoutePlannerService _planner = RoutePlannerService();
@@ -82,7 +90,9 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
   Future<void> _locate({bool requestPermission = true}) async {
     if (_locating) return;
     setState(() => _locating = true);
-    final r = await PositionHelper.current(requestPermission: requestPermission);
+    final r = await PositionHelper.current(
+      requestPermission: requestPermission,
+    );
     if (!mounted) return;
     setState(() {
       _origin = r.position;
@@ -133,7 +143,8 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
         _loading = false;
         _routes = const [];
         _scores = const [];
-        _error = 'That place is very close to you – pick somewhere further away.';
+        _error =
+            'That place is very close to you – pick somewhere further away.';
       });
       return;
     }
@@ -147,25 +158,33 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     });
 
     try {
-      final routes = await _planner.findTwoRoutes(from, to);
+      final routes = await _planner
+          .findTwoRoutes(from, to)
+          .timeout(const Duration(seconds: 30));
       if (!mounted || id != _requestId) return;
       setState(() => _routes = routes);
       _fitToRoutes();
 
-      final scores = await _safety.scoreRoutes(routes).timeout(const Duration(seconds: 30));
+      final scores = await _safety
+          .scoreRoutes(routes)
+          .timeout(const Duration(seconds: 36));
       if (!mounted || id != _requestId) return;
       setState(() {
         _scores = scores;
-        _selected = scores[0].score >= scores[1].score ? 0 : 1;
+        _selected = scores.every((s) => s.hasLightingData)
+            ? (scores[0].score >= scores[1].score ? 0 : 1)
+            : 0;
         _loading = false;
       });
     } catch (e) {
       if (!mounted || id != _requestId) return;
       setState(() {
         _loading = false;
-        _error = _routes.isEmpty
+        _error = e is SafetyDataUnavailable
+            ? e.message
+            : _routes.isEmpty
             ? 'Could not get walking routes. Check your internet connection and try again.'
-            : 'The routes are shown, but safety checks could not finish. Check your connection and try again.';
+            : 'Safety data unavailable. Hazard reports or street-lighting data could not be loaded in time. No safety rating has been assigned. Check your connection and try again.';
       });
     }
   }
@@ -178,10 +197,12 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     ];
     if (pts.length < 2 || !_mapReady) return;
     try {
-      _map.fitCamera(CameraFit.coordinates(
-        coordinates: pts,
-        padding: const EdgeInsets.fromLTRB(48, 90, 72, 48),
-      ));
+      _map.fitCamera(
+        CameraFit.coordinates(
+          coordinates: pts,
+          padding: const EdgeInsets.fromLTRB(48, 90, 72, 48),
+        ),
+      );
     } catch (_) {
       // Map not laid out yet – the initial camera is fine.
     }
@@ -201,11 +222,11 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
   }
 
   void _choose() {
-    if (!_hasResults) return;
+    if (_routes.length != 2 || _loading) return;
     final route = _routes[_selected];
-    final score = _scores[_selected];
     if (widget.onRouteChosen != null) {
-      widget.onRouteChosen!(route, score);
+      if (!_hasResults) return;
+      widget.onRouteChosen!(route, _scores[_selected]);
       return;
     }
     // Navigate to StartTripScreen with the chosen destination and route pre-filled.
@@ -234,15 +255,22 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
             tooltip: 'Nearby hazards',
             icon: const Icon(Icons.map_outlined),
             onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const NearbyHazardsScreen())),
+              context,
+              MaterialPageRoute(builder: (_) => const NearbyHazardsScreen()),
+            ),
           ),
           IconButton(
             tooltip: 'Report a hazard',
-            icon: const Icon(Icons.add_location_alt_outlined, color: AegisColors.primary),
+            icon: const Icon(
+              Icons.add_location_alt_outlined,
+              color: AegisColors.primary,
+            ),
             onPressed: () async {
               final added = await Navigator.push<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => ReportHazardScreen(initialLocation: _origin)),
+                MaterialPageRoute(
+                  builder: (_) => ReportHazardScreen(initialLocation: _origin),
+                ),
               );
               if (added == true && _destination != null) _compute();
             },
@@ -263,7 +291,10 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
   Widget _buildMap() {
     final origin = _origin!;
     final Iterable<HazardReportModel> hazards = _hasResults
-        ? {for (final s in _scores) for (final h in s.hazards) h.report.id: h.report}.values
+        ? {
+            for (final s in _scores)
+              for (final h in s.hazards) h.report.id: h.report,
+          }.values
         : const <HazardReportModel>[];
 
     return Stack(
@@ -290,40 +321,51 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               polylines: [
                 for (var i = _routes.length - 1; i >= 0; i--)
                   if (i != _selected) _polyline(i, selected: false),
-                if (_routes.length > _selected) _polyline(_selected, selected: true),
+                if (_routes.length > _selected)
+                  _polyline(_selected, selected: true),
               ],
             ),
-            MarkerLayer(markers: [
-              ...hazards.map((h) => Marker(
+            MarkerLayer(
+              markers: [
+                ...hazards.map(
+                  (h) => Marker(
                     point: LatLng(h.lat, h.lng),
                     width: 26,
                     height: 26,
                     child: Tooltip(
-                      message: '${h.categoryInfo.label} · ${timeAgo(h.reportedAt)}',
+                      message:
+                          '${h.categoryInfo.label} · ${timeAgo(h.reportedAt)}',
                       child: HazardPin(category: h.category, size: 26),
                     ),
-                  )),
-              Marker(
-                point: origin,
-                width: 28,
-                height: 28,
-                child: Tooltip(
-                  message: _gpsLive ? 'Your location' : 'Approximate starting location',
-                  child: const MyLocationDot(),
-                ),
-              ),
-              if (_destination != null)
-                Marker(
-                  point: _destination!,
-                  width: 44,
-                  height: 50,
-                  alignment: Alignment.topCenter,
-                  child: Tooltip(
-                    message: _destinationName ?? 'Selected destination',
-                    child: const DestinationPin(color: AegisColors.danger, icon: Icons.place),
                   ),
                 ),
-            ]),
+                Marker(
+                  point: origin,
+                  width: 28,
+                  height: 28,
+                  child: Tooltip(
+                    message: _gpsLive
+                        ? 'Your location'
+                        : 'Approximate starting location',
+                    child: const MyLocationDot(),
+                  ),
+                ),
+                if (_destination != null)
+                  Marker(
+                    point: _destination!,
+                    width: 44,
+                    height: 50,
+                    alignment: Alignment.topCenter,
+                    child: Tooltip(
+                      message: _destinationName ?? 'Selected destination',
+                      child: const DestinationPin(
+                        color: AegisColors.danger,
+                        icon: Icons.place,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
         Positioned(
@@ -345,9 +387,17 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
           child: Column(
             children: [
               if (_destination != null) ...[
-                MapFab(icon: Icons.fit_screen, tooltip: 'Show entire route', onPressed: _fitToRoutes),
+                MapFab(
+                  icon: Icons.fit_screen,
+                  tooltip: 'Show entire route',
+                  onPressed: _fitToRoutes,
+                ),
                 const SizedBox(height: AegisSpacing.sm),
-                MapFab(icon: Icons.close, tooltip: 'Clear destination', onPressed: _reset),
+                MapFab(
+                  icon: Icons.close,
+                  tooltip: 'Clear destination',
+                  onPressed: _reset,
+                ),
                 const SizedBox(height: AegisSpacing.sm),
               ],
               MapFab(
@@ -388,7 +438,10 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
         borderRadius: BorderRadius.circular(AegisRadius.xl),
         onTap: _searchDestination,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.lg, vertical: 14),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AegisSpacing.lg,
+            vertical: 14,
+          ),
           child: Row(
             children: [
               const Icon(Icons.search, color: AegisColors.primary),
@@ -400,15 +453,23 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
                     fontSize: 15,
-                    fontWeight: _destination == null ? FontWeight.w500 : FontWeight.w600,
-                    color: _destination == null ? AegisColors.textSecondary : AegisColors.textPrimary,
+                    fontWeight: _destination == null
+                        ? FontWeight.w500
+                        : FontWeight.w600,
+                    color: _destination == null
+                        ? AegisColors.textSecondary
+                        : AegisColors.textPrimary,
                   ),
                 ),
               ),
               if (_destination != null)
                 GestureDetector(
                   onTap: _reset,
-                  child: const Icon(Icons.close, size: 20, color: AegisColors.textSecondary),
+                  child: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: AegisColors.textSecondary,
+                  ),
                 ),
             ],
           ),
@@ -426,7 +487,10 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
         borderRadius: BorderRadius.circular(AegisRadius.md),
         onTap: _locating ? null : () => _locate(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.md, vertical: AegisSpacing.sm),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AegisSpacing.md,
+            vertical: AegisSpacing.sm,
+          ),
           child: Row(
             children: [
               const Icon(Icons.gps_off, size: 18, color: AegisColors.warning),
@@ -434,13 +498,19 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
               Expanded(
                 child: Text(
                   '${_gpsReason ?? 'GPS unavailable'}. Showing an approximate start.',
-                  style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textPrimary),
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: AegisColors.textPrimary,
+                  ),
                 ),
               ),
               Text(
                 _locating ? 'Locating…' : 'Turn on',
                 style: GoogleFonts.outfit(
-                    fontSize: 12, fontWeight: FontWeight.bold, color: AegisColors.primary),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AegisColors.primary,
+                ),
               ),
             ],
           ),
@@ -455,14 +525,22 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       child = ListView(
         padding: const EdgeInsets.all(AegisSpacing.lg),
         children: [
-          Text('Plan a safer walk',
-              style: GoogleFonts.outfit(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
+          Text(
+            'Plan a safer walk',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AegisColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: AegisSpacing.xs),
           Text(
             'Search for a place or tap anywhere on the map. We compare two walking routes '
             'using street lighting and hazards reported by other walkers.',
-            style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textSecondary),
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: AegisColors.textSecondary,
+            ),
           ),
           const SizedBox(height: AegisSpacing.lg),
           SizedBox(
@@ -474,19 +552,30 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
             ),
           ),
           const SizedBox(height: AegisSpacing.lg),
-          const _StepRow(icon: Icons.place_outlined, text: 'Choose where you are going'),
-          const _StepRow(icon: Icons.alt_route, text: 'Compare the safety score of two routes'),
-          const _StepRow(icon: Icons.directions_walk, text: 'Start a live trip your guardians can follow'),
+          const _StepRow(
+            icon: Icons.place_outlined,
+            text: 'Choose where you are going',
+          ),
+          const _StepRow(
+            icon: Icons.alt_route,
+            text: 'Compare the safety score of two routes',
+          ),
+          const _StepRow(
+            icon: Icons.directions_walk,
+            text: 'Start a live trip your guardians can follow',
+          ),
         ],
       );
-    } else if (_error != null && !_loading) {
+    } else if (_error != null && !_loading && _routes.isEmpty) {
       child = ListView(
         padding: const EdgeInsets.all(AegisSpacing.lg),
         children: [
           AegisEmptyState(
             icon: Icons.wifi_off_rounded,
             iconColor: AegisColors.warning,
-            title: 'Routes unavailable',
+            title: _routes.isNotEmpty
+                ? 'Safety data unavailable'
+                : 'Routes unavailable',
             message: _error!,
             actionLabel: 'Try again',
             actionIcon: Icons.refresh,
@@ -501,8 +590,16 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     return Container(
       decoration: const BoxDecoration(
         color: AegisColors.surfaceContainerLow,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AegisRadius.xxl)),
-        boxShadow: [BoxShadow(color: Color(0x1A007FFF), blurRadius: 12, offset: Offset(0, -2))],
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AegisRadius.xxl),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1A007FFF),
+            blurRadius: 12,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
       child: child,
     );
@@ -510,16 +607,27 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
 
   Widget _buildResults() {
     final scoresReady = _hasResults;
-    final best = scoresReady ? (_scores[0].score >= _scores[1].score ? 0 : 1) : -1;
+    final fullyRated = scoresReady && _scores.every((s) => s.hasLightingData);
+    final best = fullyRated
+        ? (_scores[0].score >= _scores[1].score ? 0 : 1)
+        : -1;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AegisSpacing.lg, AegisSpacing.lg, AegisSpacing.lg, 96),
+      padding: const EdgeInsets.fromLTRB(
+        AegisSpacing.lg,
+        AegisSpacing.lg,
+        AegisSpacing.lg,
+        96,
+      ),
       children: [
         Row(
           children: [
             if (_loading) ...[
               const SizedBox(
-                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
               const SizedBox(width: AegisSpacing.sm),
             ],
             Expanded(
@@ -527,20 +635,55 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
                 _loading && _routes.isEmpty
                     ? 'Finding walking routes…'
                     : _loading
-                        ? 'Checking lighting and hazards…'
-                        : 'Pick the route you feel safest on',
+                    ? 'Checking lighting and hazards…'
+                    : fullyRated
+                    ? 'Pick the route you feel safest on'
+                    : 'Choose a walking route',
                 style: GoogleFonts.outfit(
-                    fontSize: 16, fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AegisColors.textPrimary,
+                ),
               ),
             ),
           ],
         ),
         if (_routes.isNotEmpty && !_loading) ...[
           const SizedBox(height: 2),
-          Text('Tip: tap a line on the map to select it.',
-              style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
+          Text(
+            'Tip: tap a line on the map to select it.',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: AegisColors.textSecondary,
+            ),
+          ),
         ],
         const SizedBox(height: AegisSpacing.md),
+        if (scoresReady && !fullyRated) ...[
+          const Text(
+            'Hazard reports only',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const Text(
+            'Street-lighting information is unavailable or not mapped. Compare the reported hazards below; no overall safety rating is available.',
+          ),
+          TextButton.icon(
+            onPressed: () => _compute(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh safety information'),
+          ),
+        ],
+        if (_error != null && !_loading) ...[
+          Text(_error!, style: TextStyle(color: AegisColors.warning)),
+          const Text(
+            'You can still start a trip. No safer-route recommendation is available.',
+          ),
+          TextButton.icon(
+            onPressed: () => _compute(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry route safety check'),
+          ),
+        ],
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -552,24 +695,34 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
                   color: _routeColors[i],
                   route: i < _routes.length ? _routes[i] : null,
                   score: scoresReady ? _scores[i] : null,
+                  loading: _loading,
                   selected: _selected == i,
-                  recommended: best == i && _scores[0].score != _scores[1].score,
-                  onTap: _routes.length > i ? () => setState(() => _selected = i) : null,
+                  recommended:
+                      best == i && _scores[0].score != _scores[1].score,
+                  onTap: _routes.length > i
+                      ? () => setState(() => _selected = i)
+                      : null,
                 ),
               ),
             ],
           ],
         ),
-        if (scoresReady) ...[
+        if (_routes.length == 2 &&
+            !_loading &&
+            (widget.onRouteChosen == null || scoresReady)) ...[
           const SizedBox(height: AegisSpacing.lg),
           SizedBox(
             height: 52,
             child: FilledButton.icon(
               onPressed: _choose,
               icon: const Icon(Icons.directions_walk),
-              label: Text('Start walking · ${_routes[_selected].label}'),
+              label: Text(
+                'Start walking · ${_routes[_selected].label}${scoresReady ? '' : ' (unrated)'}',
+              ),
             ),
           ),
+        ],
+        if (scoresReady) ...[
           const SizedBox(height: AegisSpacing.lg),
           _ScoreExplanation(
             route: _routes[_selected],
@@ -603,8 +756,13 @@ class _StepRow extends StatelessWidget {
           ),
           const SizedBox(width: AegisSpacing.md),
           Expanded(
-            child: Text(text,
-                style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textPrimary)),
+            child: Text(
+              text,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: AegisColors.textPrimary,
+              ),
+            ),
           ),
         ],
       ),
@@ -617,6 +775,7 @@ class _RouteOptionCard extends StatelessWidget {
   final Color color;
   final CandidateRoute? route;
   final RouteSafetyScore? score;
+  final bool loading;
   final bool selected;
   final bool recommended;
   final VoidCallback? onTap;
@@ -626,6 +785,7 @@ class _RouteOptionCard extends StatelessWidget {
     required this.color,
     required this.route,
     required this.score,
+    required this.loading,
     required this.selected,
     required this.recommended,
     required this.onTap,
@@ -638,7 +798,9 @@ class _RouteOptionCard extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: selected ? color.withValues(alpha: 0.12) : AegisColors.surfaceContainerHigh,
+        color: selected
+            ? color.withValues(alpha: 0.12)
+            : AegisColors.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(AegisRadius.xl),
         border: Border.all(
           color: selected ? color : AegisColors.surfaceContainerHighest,
@@ -659,40 +821,93 @@ class _RouteOptionCard extends StatelessWidget {
                     Container(
                       width: 10,
                       height: 10,
-                      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(label,
-                          style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
+                      child: Text(
+                        label,
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          color: AegisColors.textPrimary,
+                        ),
+                      ),
                     ),
                     if (recommended)
-                      const Icon(Icons.verified, color: AegisColors.tertiary, size: 18),
+                      const Icon(
+                        Icons.verified,
+                        color: AegisColors.tertiary,
+                        size: 18,
+                      ),
                   ],
                 ),
                 const SizedBox(height: AegisSpacing.md),
-                SafetyScoreRing(score: s?.score, size: 78),
+                if (s == null && !loading)
+                  const SizedBox(
+                    height: 78,
+                    child: Center(child: Icon(Icons.help_outline, size: 48)),
+                  )
+                else if (s != null && !s.hasLightingData)
+                  SizedBox(
+                    height: 78,
+                    child: Center(
+                      child: Text(
+                        '${s.hazards.length}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SafetyScoreRing(score: s?.score, size: 78),
                 const SizedBox(height: AegisSpacing.sm),
                 Text(
-                  s == null ? '…' : (recommended ? 'Safer choice' : s.rating),
+                  s == null
+                      ? (loading ? '…' : 'Not rated')
+                      : !s.hasLightingData
+                      ? 'Reported hazards'
+                      : (recommended ? 'Safer choice' : s.rating),
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: s == null ? AegisColors.textSecondary : AegisColors.forScore(s.score),
+                    color: s == null || !s.hasLightingData
+                        ? AegisColors.textSecondary
+                        : AegisColors.forScore(s.score),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   r == null ? '—' : '${r.durationMin} min · ${r.distanceLabel}',
-                  style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: AegisColors.textSecondary,
+                  ),
                 ),
-                if (s != null) ...[
+                if (s != null && !s.hasLightingData)
+                  const Padding(
+                    padding: EdgeInsets.only(top: AegisSpacing.sm),
+                    child: Text(
+                      'Lighting unknown\nNot safety-rated',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (s != null && s.hasLightingData) ...[
                   const SizedBox(height: AegisSpacing.md),
-                  SubScoreBar(label: 'Lighting', value: s.lightingScore, icon: Icons.lightbulb_outline),
+                  SubScoreBar(
+                    label: 'Lighting',
+                    value: s.lightingScore,
+                    icon: Icons.lightbulb_outline,
+                  ),
                   const SizedBox(height: AegisSpacing.sm),
                   SubScoreBar(
-                    label: s.hazards.isEmpty ? 'No hazards' : '${s.hazards.length} hazard${s.hazards.length == 1 ? '' : 's'}',
+                    label: s.hazards.isEmpty
+                        ? 'No reports'
+                        : '${s.hazards.length} hazard${s.hazards.length == 1 ? '' : 's'}',
                     value: s.hazardScore,
                     icon: Icons.warning_amber_rounded,
                   ),
@@ -711,7 +926,11 @@ class _ScoreExplanation extends StatelessWidget {
   final RouteSafetyScore score;
   final Color color;
 
-  const _ScoreExplanation({required this.route, required this.score, required this.color});
+  const _ScoreExplanation({
+    required this.route,
+    required this.score,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -727,47 +946,82 @@ class _ScoreExplanation extends StatelessWidget {
           iconColor: AegisColors.textSecondary,
           collapsedIconColor: AegisColors.textSecondary,
           leading: Icon(Icons.insights_outlined, color: color),
-          title: Text('Why ${route.label} scores ${score.score}',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
-          childrenPadding: const EdgeInsets.fromLTRB(AegisSpacing.lg, 0, AegisSpacing.lg, AegisSpacing.lg),
+          title: Text(
+            score.hasLightingData
+                ? 'Why ${route.label} scores ${score.score}'
+                : '${route.label}: reported hazards',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              color: AegisColors.textPrimary,
+            ),
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(
+            AegisSpacing.lg,
+            0,
+            AegisSpacing.lg,
+            AegisSpacing.lg,
+          ),
           children: [
-            ...score.explanation.map((line) => Padding(
-                  padding: const EdgeInsets.only(bottom: AegisSpacing.sm),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Icon(Icons.circle, size: 6, color: AegisColors.textSecondary),
+            ...score.explanation.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: AegisSpacing.sm),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Icon(
+                        Icons.circle,
+                        size: 6,
+                        color: AegisColors.textSecondary,
                       ),
-                      const SizedBox(width: AegisSpacing.sm),
-                      Expanded(
-                        child: Text(line,
-                            style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textPrimary)),
+                    ),
+                    const SizedBox(width: AegisSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        line,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: AegisColors.textPrimary,
+                        ),
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (score.hazards.isNotEmpty) ...[
               const SizedBox(height: AegisSpacing.xs),
-              ...score.hazards.take(4).map((h) => Padding(
-                    padding: const EdgeInsets.only(bottom: AegisSpacing.xs),
-                    child: Row(
-                      children: [
-                        HazardPin(category: h.report.category, size: 20),
-                        const SizedBox(width: AegisSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            '${h.report.categoryInfo.label} · ${h.distanceM.round()} m off route · ${timeAgo(h.report.reportedAt)}',
-                            style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary),
+              ...score.hazards
+                  .take(4)
+                  .map(
+                    (h) => Padding(
+                      padding: const EdgeInsets.only(bottom: AegisSpacing.xs),
+                      child: Row(
+                        children: [
+                          HazardPin(category: h.report.category, size: 20),
+                          const SizedBox(width: AegisSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              '${h.report.categoryInfo.label} · ${h.distanceM.round()} m off route · ${timeAgo(h.report.reportedAt)}',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: AegisColors.textSecondary,
+                              ),
+                            ),
                           ),
-                        ),
-                        Text('−${(h.weight * RouteSafetyScorer.pointsPerHazard).round()}',
+                          Text(
+                            '−${(h.weight * RouteSafetyScorer.pointsPerHazard).round()}',
                             style: GoogleFonts.outfit(
-                                fontSize: 12, fontWeight: FontWeight.bold, color: AegisColors.danger)),
-                      ],
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AegisColors.danger,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )),
+                  ),
             ],
           ],
         ),

@@ -52,6 +52,7 @@ class AegisMap extends StatelessWidget {
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.aegis.safewalk',
+          maxZoom: 19,
           maxNativeZoom: 19,
           panBuffer: 0,
           keepBuffer: 0,
@@ -62,11 +63,15 @@ class AegisMap extends StatelessWidget {
           child: Material(
             color: const Color(0xEEFFFFFF),
             child: InkWell(
-              onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
+              onTap: () => launchUrl(
+                Uri.parse('https://www.openstreetmap.org/copyright'),
+              ),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Text('© OpenStreetMap contributors',
-                    style: TextStyle(fontSize: 11, color: Colors.black87)),
+                child: Text(
+                  '© OpenStreetMap contributors',
+                  style: TextStyle(fontSize: 11, color: Colors.black87),
+                ),
               ),
             ),
           ),
@@ -103,7 +108,11 @@ class MyLocationDot extends StatelessWidget {
 class DestinationPin extends StatelessWidget {
   final Color color;
   final IconData icon;
-  const DestinationPin({super.key, this.color = AegisColors.primary, this.icon = Icons.flag_rounded});
+  const DestinationPin({
+    super.key,
+    this.color = AegisColors.primary,
+    this.icon = Icons.flag_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +141,12 @@ class MapFab extends StatelessWidget {
   final VoidCallback onPressed;
   final String tooltip;
 
-  const MapFab({super.key, required this.icon, required this.onPressed, required this.tooltip});
+  const MapFab({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
