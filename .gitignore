@@ -53,7 +53,10 @@ secrets.properties
 !secrets.defaults.properties
 !**/secrets.defaults.properties
 .gradle/
+android/.kotlin/
 
 # Firebase configuration files
 google-services.json
 android/app/google-services.json
+.firebase/
+firebase-debug.log*

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import '../alert_service.dart';
 import '../firestore_service.dart';
+import '../live_sharing_service.dart';
 
 abstract class SosGateway {
   Future<AlertTriggerResult> trigger(String type, String requestId);
@@ -79,11 +80,16 @@ class BackendSosGateway implements SosGateway {
       lng: position.longitude,
       tripId: tripId,
       requestId: requestId,
+      fixTime: position.timestamp,
+      accuracy: position.accuracy,
     );
   }
 
   @override
-  Future<void> resolve(String alertId) => FirestoreService.instance
-      .resolveAlert(alertId)
-      .timeout(const Duration(seconds: 10));
+  Future<void> resolve(String alertId) async {
+    await LiveSharingService.stop();
+    await FirestoreService.instance
+        .resolveAlert(alertId)
+        .timeout(const Duration(seconds: 10));
+  }
 }
