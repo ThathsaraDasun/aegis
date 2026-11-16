@@ -9,17 +9,27 @@ link and can follow the walker in any browser until the trip ends.
 
 1. **Start Trip** creates `trip_shares/{token}` (random 64-hex token) and a link
    `https://aegis-45002.web.app/trip/#<token>`.
-2. **Guardians are alerted**: "I started a Safe Walk. Follow my live location:
-   <link>" goes to all saved guardians — automatically when *Automatic guardian
-   SMS* is on, otherwise via **Notify by SMS / WhatsApp** on Live Tracking.
+2. **Guardians are alerted automatically by SMS from the SIM**: "I started a
+   Safe Walk. Follow my live location: <link>" goes to all saved (non-demo)
+   guardians. Android asks for SMS permission once. If permission is denied
+   or there is no SMS SIM, Live Tracking shows **Notify by SMS / WhatsApp**.
 3. **During the trip** the position is uploaded about every 15 s, also with the
    screen locked (foreground notification "Sharing your Safe Walk").
 4. **Trip end** ("I have arrived safely" or the 90-minute auto-end) revokes the
    link (`active: false`); the page then shows "The trip has ended". Links also
    expire after 4 h as a safety net. Sharing resumes after an app restart.
-5. If the page is not deployed or the phone is offline, the trip still starts
-   and the message falls back to a Maps link of the start point.
-6. SOS sharing (`live_shares`, `/sos/`) is unchanged.
+5. **Trip-end SMS, also automatic**: "I have arrived safely…" — or, after the
+   90-minute auto-end without confirmation, "…Please check on me. Last known
+   location: <maps link>". The trip summary shows the result (or the manual
+   buttons as a fallback).
+6. **Slow connection**: ending a trip no longer fails with a timeout; the end is
+   saved on the phone and synced later ("Saved on this phone…").
+7. If the page is not deployed or the phone is offline, the trip still starts
+   and the start message falls back to a Maps link of the start point.
+8. SOS is unchanged: SOS sharing (`live_shares`, `/sos/`) and the Safety page
+   "Automatic guardian SMS" opt-in still apply only to SOS/fall alerts. Trip
+   SMS uses a separate native path (`smsSendTrip` → `AutomaticSms.sendTrip`)
+   with the same duplicate protection. Each trip sends 2 SMS per guardian.
 
 ## Files
 
@@ -29,8 +39,12 @@ link and can follow the walker in any browser until the trip ends.
 | `sos-viewer/trip/` | Guardian page (`index.html`, `trip.js`, `trip.css`, `ready.json`). Reuses `../sos/vendor/leaflet`. |
 | `lib/services/trip_share_service.dart` | Start / upload / stop / resume. |
 | `lib/screens/trip/start_trip_screen.dart` | Starts sharing and the guardian alert after the trip is created. |
-| `lib/screens/trip/live_map_screen.dart` | Guardian card, Notify buttons, stops sharing at trip end. |
-| `test/trip_share_service_test.dart` | 6 tests. |
+| `lib/screens/trip/live_map_screen.dart` | Guardian card, Notify buttons, stops sharing at trip end; trip end no longer times out on slow connections. |
+| `lib/screens/trip/trip_summary_screen.dart` | "Tell your guardians" card with the automatic trip-end SMS result / fallback buttons. |
+| `lib/services/alert_service.dart` | Shared trip start/end message helper, `buildTripEndMessage`, `prepareTripEndShare`, automatic trip SMS (`sendTripSms`). |
+| `lib/services/automatic_sms_service.dart` | `sendTripMessage` (asks SMS permission, calls `smsSendTrip`). |
+| `android/.../AutomaticSms.kt`, `MainActivity.kt` | Native `sendTrip` / `smsSendTrip`, independent of the SOS opt-in. |
+| `test/trip_share_service_test.dart`, `test/trip_end_message_test.dart`, `test/alert_service_test.dart` | Sharing, trip-end message and automatic trip SMS tests. |
 
 ## Deployment (Member 1 — project owner)
 
