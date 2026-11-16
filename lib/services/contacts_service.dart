@@ -134,10 +134,30 @@ class ContactsService {
   }
 
   /// Returns an error message, or null when the number looks valid.
-  static String? validatePhone(String? raw) {
-    final p = normalizePhone(raw ?? '');
-    if (p.isEmpty) return 'Phone number is required';
-    if (!RegExp(r'^\+?\d{7,15}$').hasMatch(p)) return 'Enter a valid phone number';
-    return null;
+  /// Enforces standard style: starting with 0 and total 10 digits (e.g. 0771234567),
+  /// or international format starting with + (e.g. +94771234567).
+  static String? validatePhone(String? raw, {bool optional = false}) {
+    final clean = (raw ?? '').trim().replaceAll(RegExp(r'[\s\-()]'), '');
+    if (clean.isEmpty) {
+      return optional ? null : 'Phone number is required';
+    }
+
+    // Standard 10-digit number starting with 0 (e.g. 0771234567 or 0112345678)
+    if (clean.startsWith('0')) {
+      if (!RegExp(r'^0\d{9}$').hasMatch(clean)) {
+        return 'Phone number starting with 0 must be 10 digits (e.g. 0771234567)';
+      }
+      return null;
+    }
+
+    // International format starting with + (e.g. +94771234567)
+    if (clean.startsWith('+')) {
+      if (!RegExp(r'^\+\d{9,14}$').hasMatch(clean)) {
+        return 'Enter a valid international phone number (e.g. +94771234567)';
+      }
+      return null;
+    }
+
+    return 'Phone number must start with 0 (10 digits) or +94';
   }
 }

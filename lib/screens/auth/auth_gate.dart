@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/contacts_service.dart';
 import 'login_screen.dart';
 
 /// Owns the authenticated navigator so signing out also removes pushed pages.
@@ -165,17 +166,10 @@ class _ProfileGateState extends State<_ProfileGate> {
                           enabled: !_busy,
                           decoration: const InputDecoration(
                             labelText: 'Phone (optional)',
+                            hintText: 'e.g. 0771234567 or +94771234567',
                           ),
                           keyboardType: TextInputType.phone,
-                          validator: (v) {
-                            final value = (v ?? '').trim();
-                            if (value.isEmpty) return null;
-                            return RegExp(
-                                  r'^\+?[0-9 ()-]{7,20}$',
-                                ).hasMatch(value)
-                                ? null
-                                : 'Enter a valid phone number.';
-                          },
+                          validator: (v) => ContactsService.validatePhone(v, optional: true),
                         ),
                         const SizedBox(height: 24),
                         FilledButton(

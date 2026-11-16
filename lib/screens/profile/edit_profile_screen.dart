@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/user_model.dart';
+import '../../services/contacts_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/profile_photo_avatar.dart';
 import '../safety/safety_shell.dart';
@@ -318,9 +319,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 keyboardType: TextInputType.phone,
                                 style: _fieldText,
                                 cursorColor: _P.azure,
+                                validator: (v) => ContactsService.validatePhone(v, optional: true),
                                 decoration: _buildInputDecoration(
                                   label: 'Phone Number',
-                                  hintText: 'e.g. +1 555-019-2834',
+                                  hintText: 'e.g. 0771234567 or +94771234567',
                                   prefixIcon: Icons.phone_outlined,
                                 ),
                               ),
