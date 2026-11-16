@@ -1,15 +1,3 @@
-import java.util.Properties
-
-// Google Maps key: android/secrets.properties (git-ignored) → local.properties → placeholder.
-val mapsApiKey: String = run {
-    val props = Properties()
-    listOf("secrets.defaults.properties", "local.properties", "secrets.properties")
-        .map { rootProject.file(it) }
-        .filter { it.exists() }
-        .forEach { file -> file.inputStream().use { props.load(it) } }
-    props.getProperty("MAPS_API_KEY") ?: "YOUR_MAPS_API_KEY_HERE"
-}
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -42,7 +30,6 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     dependencies {
