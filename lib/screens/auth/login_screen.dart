@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
+import '../../services/password_policy.dart';
 
 /// Colour palette used by the sign-in / create-account screen.
 class _AuthPalette {
@@ -193,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
               decoration: _fieldDecoration(
                 label: 'Password',
-                hint: _register ? 'At least 6 characters' : null,
+                hint: _register ? 'Create a strong password' : null,
                 icon: Icons.lock_outline_rounded,
                 suffix: IconButton(
                   tooltip: _obscure ? 'Show password' : 'Hide password',
@@ -207,12 +208,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              onChanged: _register ? (_) => setState(() {}) : null,
               validator: (v) {
                 if (v == null || v.isEmpty) {
                   return 'Enter your password.';
                 }
-                if (_register && v.length < 6) {
-                  return 'Use at least 6 characters.';
+                if (_register) {
+                  return PasswordPolicy.validate(v, email: _email.text);
                 }
                 return null;
               },
@@ -220,6 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!_register) _submit();
               },
             ),
+            if (_register) _PasswordChecklist(password: _password.text),
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
@@ -357,6 +360,48 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 /// Blue curved header with the Aegis logo and the page title.
+/// Live list of password requirements shown while creating an account.
+class _PasswordChecklist extends StatelessWidget {
+  final String password;
+  const _PasswordChecklist({required this.password});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
+    child: Wrap(
+      spacing: 14,
+      runSpacing: 6,
+      children: [
+        for (final rule in PasswordPolicy.rules)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                rule.check(password)
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 15,
+                color: rule.check(password)
+                    ? const Color(0xFF1E8E5A)
+                    : _AuthPalette.muted,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                rule.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: rule.check(password)
+                      ? const Color(0xFF1E8E5A)
+                      : _AuthPalette.muted,
+                ),
+              ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
+
 class _Header extends StatelessWidget {
   final bool register;
   const _Header({required this.register});

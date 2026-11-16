@@ -26,29 +26,59 @@ class SafetyController extends ChangeNotifier {
   bool _nativeEvent = false;
   bool get automaticSms => AutomaticSmsService.enabled;
   bool changingSms = false;
+
+  /// Turns automatic guardian SMS on or off. Works whether or not fall
+  /// monitoring is already running: the native fall service reads the SMS
+  /// setting when it starts, so a running monitor is restarted to apply it.
   Future<void> setAutomaticSms(bool enabled) async {
-    if (busy || monitoring || changingSms || changingMonitoring) return;
+    if (busy || changingSms || changingMonitoring) return;
     changingSms = true;
     _notify();
     try {
       if (enabled) {
-        final count = await AutomaticSmsService.enable();
+        final result = await AutomaticSmsService.enable();
         if (_disposed) {
           await AutomaticSmsService.disable();
           return;
         }
         notice =
-            'Automatic SMS enabled for $count guardian(s). SMS charges may apply. Re-enable after changing guardians.';
+            'Automatic SMS enabled for ${result.count} guardian(s). SMS charges may apply. Re-enable after changing guardians.'
+            '${result.skipped.isEmpty ? '' : ' Not included – fix their number in the Guardians tab: ${result.skipped.join(', ')}.'}';
       } else {
         await AutomaticSmsService.disable();
         notice = 'Automatic SMS off. Messages require you to tap Send.';
       }
     } catch (e) {
       await AutomaticSmsService.disable();
-      notice = e is PlatformException ? e.message : '$e';
+      notice = switch (e) {
+        PlatformException(:final message) => message,
+        StateError(:final message) => message,
+        _ => 'Could not turn on automatic SMS. Please try again.',
+      };
     } finally {
+      await _applySmsToRunningMonitor();
       changingSms = false;
       _notify();
+    }
+  }
+
+  /// Restarts a running background monitor so it uses the current SMS setting.
+  Future<void> _applySmsToRunningMonitor() async {
+    final monitor = backgroundMonitor;
+    if (!monitoring ||
+        monitor == null ||
+        _disposed ||
+        phase != SafetyPhase.idle) {
+      return;
+    }
+    try {
+      await monitor.stop();
+      await monitor.start(demo);
+    } catch (_) {
+      monitoring = false;
+      _nativePoll?.cancel();
+      notice =
+          'Fall monitoring stopped while updating SMS settings. Turn it on again.';
     }
   }
 

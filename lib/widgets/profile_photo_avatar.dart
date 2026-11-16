@@ -170,6 +170,9 @@ class _ProfilePhotoAvatarState extends State<ProfilePhotoAvatar> {
   @override
   Widget build(BuildContext context) => FutureBuilder<File?>(
     future: _photo,
+    // Show a photo already loaded this session straight away (no initials
+    // flash when switching tabs or opening Edit Profile).
+    initialData: _service.cached(widget.uid),
     builder: (context, snapshot) {
       final file = snapshot.data;
       final size = widget.size;
