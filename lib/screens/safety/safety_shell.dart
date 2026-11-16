@@ -758,8 +758,9 @@ class _SafetyGuideTipState extends State<_SafetyGuideTip> {
     super.initState();
     SharedPreferences.getInstance()
         .then((p) {
-          if (mounted && p.getBool(_prefKey) != true)
+          if (mounted && p.getBool(_prefKey) != true) {
             setState(() => _visible = true);
+          }
         })
         .catchError((_) {});
   }
