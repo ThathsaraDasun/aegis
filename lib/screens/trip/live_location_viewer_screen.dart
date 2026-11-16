@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import '../../models/trip_model.dart';
+import '../../models/shared_trip_model.dart';
 import '../../services/firestore_service.dart';
 import 'trip_map.dart';
 
-/// Reads only trips permitted by the deployed Firestore rules.
+/// Shows a trip's live position.
+///
+/// Opened with [tripId] it reads the owner's own trip (owner-only rules).
+/// Opened with [shareToken] (from an `aegis://live/<token>` link) it reads the
+/// public guardian mirror, which works without signing in while the trip is active.
 class LiveLocationViewerScreen extends StatefulWidget {
-  final String tripId;
-  const LiveLocationViewerScreen({super.key, required this.tripId});
+  final String? tripId;
+  final String? shareToken;
+
+  const LiveLocationViewerScreen({super.key, this.tripId, this.shareToken})
+    : assert(tripId != null || shareToken != null);
+
+  /// Viewer for a guardian link.
+  const LiveLocationViewerScreen.shared({super.key, required String this.shareToken})
+    : tripId = null;
+
   @override
   State<LiveLocationViewerScreen> createState() =>
       _LiveLocationViewerScreenState();
@@ -22,19 +34,26 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
     super.dispose();
   }
 
-  late final _stream = FirestoreService.instance.streamTrip(widget.tripId);
+  late final Stream<SharedTripModel?> _stream = widget.shareToken != null
+      ? FirestoreService.instance.streamSharedTrip(widget.shareToken!)
+      : FirestoreService.instance
+            .streamTrip(widget.tripId!)
+            .map((trip) => trip == null ? null : SharedTripModel.fromTrip(trip));
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Trip location')),
-    body: StreamBuilder<TripModel?>(
+    body: StreamBuilder<SharedTripModel?>(
       stream: _stream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               child: Text(
-                'Unable to access this trip. It must be shared with your account.',
+                widget.shareToken != null
+                    ? 'This live link has ended or is not valid.'
+                    : 'Unable to access this trip. It must be shared with your account.',
               ),
             ),
           );
@@ -62,9 +81,11 @@ class _LiveLocationViewerScreenState extends State<LiveLocationViewerScreen> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
-                trip.endedAt == null && trip.status != TripStatus.completed
-                    ? 'Latest shared position'
-                    : 'Trip ended — last saved position',
+                !trip.isLive
+                    ? 'Trip ended — last saved position'
+                    : trip.alerted
+                    ? 'SOS raised — latest shared position'
+                    : 'Latest shared position',
               ),
             ),
             Expanded(

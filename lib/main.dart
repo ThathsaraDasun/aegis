@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/safety/safety_shell.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/trip/live_share_route.dart';
 import 'screens/activity/activity_feed_screen.dart';
 import 'screens/activity/trip_history_screen.dart';
 import 'screens/contacts/contacts_list_screen.dart';
@@ -47,7 +48,20 @@ class AegisApp extends StatelessWidget {
     title: 'Aegis - Safe Walk',
     debugShowCheckedModeBanner: false,
     theme: AegisTheme.light(),
-    home: SplashScreen(
+    // A guardian link (aegis://live/<token>) opens straight into the live
+    // viewer; every other launch starts at the splash screen as before.
+    onGenerateInitialRoutes: (initialRoute) => [
+      liveShareRoute(initialRoute) ?? _homeRoute(),
+    ],
+    onGenerateRoute: (settings) => settings.name == Navigator.defaultRouteName
+        ? _homeRoute()
+        : liveShareRoute(settings.name),
+    onUnknownRoute: invalidLiveShareRoute,
+  );
+
+  static Route<void> _homeRoute() => MaterialPageRoute<void>(
+    settings: const RouteSettings(name: Navigator.defaultRouteName),
+    builder: (_) => SplashScreen(
       nextScreen: AuthGate(
         service: FirebaseAuthService(),
         signedInBuilder: (_) =>
