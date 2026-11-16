@@ -174,7 +174,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
 
       final guardians = await AlertService.instance.prepareTripStartShare(
         userId: uid,
-        contactIds: null,
+        contactIds: const [],
         lat: p.latitude,
         lng: p.longitude,
         tripId: id,
