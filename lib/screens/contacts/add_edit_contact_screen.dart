@@ -167,8 +167,8 @@ class _AddEditContactScreenState extends State<AddEditContactScreen> {
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Phone number',
-                  hintText: '+94 77 123 4567',
-                  helperText: 'Local numbers (07…) are saved as +94',
+                  hintText: 'e.g. 0771234567 or +94771234567',
+                  helperText: '10-digit number starting with 0 (e.g. 0771234567)',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
                 validator: ContactsService.validatePhone,
