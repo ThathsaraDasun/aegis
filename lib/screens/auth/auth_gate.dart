@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
 import '../../services/phone_validation.dart';
+import '../../widgets/nested_back_scope.dart';
 import 'login_screen.dart';
 
 /// Shown after registration (or for any unverified account) until the user
@@ -351,6 +352,7 @@ class _ProfileGate extends StatefulWidget {
 class _ProfileGateState extends State<_ProfileGate> {
   late Future<bool> _profile = widget.service.hasProfile(widget.account.uid);
   final _form = GlobalKey<FormState>();
+  final _navigatorKey = GlobalKey<NavigatorState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
   bool _busy = false;
@@ -400,9 +402,13 @@ class _ProfileGateState extends State<_ProfileGate> {
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       }
       if (!snapshot.hasError && snapshot.data == true) {
-        return Navigator(
-          onGenerateRoute: (_) =>
-              MaterialPageRoute(builder: widget.signedInBuilder),
+        return NestedBackScope(
+          navigatorKey: _navigatorKey,
+          child: Navigator(
+            key: _navigatorKey,
+            onGenerateRoute: (_) =>
+                MaterialPageRoute(builder: widget.signedInBuilder),
+          ),
         );
       }
       return Scaffold(

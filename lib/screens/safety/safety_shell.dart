@@ -5,6 +5,7 @@ import '../../services/safety/background_monitor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/aegis_theme.dart';
+import '../../widgets/nested_back_scope.dart';
 import '../../services/alert_service.dart';
 import '../../services/automatic_sms_service.dart';
 import '../../services/live_sharing_service.dart';
@@ -164,7 +165,7 @@ class _SafetyShellState extends State<SafetyShell> with WidgetsBindingObserver {
               controller.phase == SafetyPhase.failed) {
             controller.dismiss();
           } else if (controller.phase == SafetyPhase.idle) {
-            await _navigatorKey.currentState?.maybePop();
+            await NestedBackScope.backOrExit(_navigatorKey.currentState);
           }
         },
         child: Stack(
