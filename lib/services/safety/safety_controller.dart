@@ -26,8 +26,12 @@ class SafetyController extends ChangeNotifier {
   bool _nativeEvent = false;
   bool get automaticSms => AutomaticSmsService.enabled;
   bool changingSms = false;
+
+  /// Turns automatic guardian SMS on or off. Works whether or not fall
+  /// monitoring is already running: the native fall service reads the SMS
+  /// setting when it starts, so a running monitor is restarted to apply it.
   Future<void> setAutomaticSms(bool enabled) async {
-    if (busy || monitoring || changingSms || changingMonitoring) return;
+    if (busy || changingSms || changingMonitoring) return;
     changingSms = true;
     _notify();
     try {
@@ -47,8 +51,29 @@ class SafetyController extends ChangeNotifier {
       await AutomaticSmsService.disable();
       notice = e is PlatformException ? e.message : '$e';
     } finally {
+      await _applySmsToRunningMonitor();
       changingSms = false;
       _notify();
+    }
+  }
+
+  /// Restarts a running background monitor so it uses the current SMS setting.
+  Future<void> _applySmsToRunningMonitor() async {
+    final monitor = backgroundMonitor;
+    if (!monitoring ||
+        monitor == null ||
+        _disposed ||
+        phase != SafetyPhase.idle) {
+      return;
+    }
+    try {
+      await monitor.stop();
+      await monitor.start(demo);
+    } catch (_) {
+      monitoring = false;
+      _nativePoll?.cancel();
+      notice =
+          'Fall monitoring stopped while updating SMS settings. Turn it on again.';
     }
   }
 
