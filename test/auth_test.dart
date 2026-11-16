@@ -15,6 +15,7 @@ class FakeAuthService implements AuthService {
   int signInCalls = 0;
   int registerCalls = 0;
   int verificationEmails = 0;
+  DateTime? sentAt;
   bool verified = true;
   String? passwordReceived;
   String? nameSaved;
@@ -39,11 +40,18 @@ class FakeAuthService implements AuthService {
     profile = false;
     verified = false;
     verificationEmails++;
+    sentAt = DateTime.now();
     await signIn(email, password);
   }
 
   @override
-  Future<void> sendEmailVerification() async => verificationEmails++;
+  Future<void> sendEmailVerification() async {
+    verificationEmails++;
+    sentAt = DateTime.now();
+  }
+
+  @override
+  Future<DateTime?> verificationSentAt(String uid) async => sentAt;
 
   @override
   Future<bool> refreshEmailVerified() async {
@@ -287,6 +295,8 @@ void main() {
     await mount(tester, service);
     expect(find.text('Verify your email'), findsOneWidget);
     expect(find.text('Protected dashboard'), findsNothing);
+    // An older account that never got a link is sent one automatically.
+    expect(service.verificationEmails, 1);
     service.verified = true;
     await tester.tap(find.text("I've verified my email"));
     await tester.pumpAndSettle();

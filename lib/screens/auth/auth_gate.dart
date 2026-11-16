@@ -17,15 +17,17 @@ class _VerifyEmailScreen extends StatefulWidget {
   State<_VerifyEmailScreen> createState() => _VerifyEmailScreenState();
 }
 
-class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
+class _VerifyEmailScreenState extends State<_VerifyEmailScreen>
+    with WidgetsBindingObserver {
   static const _azure = Color(0xFF007FFF);
   static const _mist = Color(0xFFF0F8FF);
   static const _ink = Color(0xFF0B2545);
   static const _muted = Color(0xFF6B7A90);
   static const _resendWait = 60;
 
-  bool _checking = false, _sending = false;
-  int _cooldown = _resendWait; // the link was just sent at registration
+  bool _checking = false, _sending = false, _foreground = true;
+  int _cooldown = 0;
+  DateTime? _sentAt;
   String? _message;
   bool _messageIsError = false;
   Timer? _ticker, _autoCheck;
@@ -33,21 +35,47 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
   @override
   void initState() {
     super.initState();
-    _startCooldown();
-    // Notice verification automatically while this screen is open.
-    _autoCheck = Timer.periodic(const Duration(seconds: 6), (_) => _check());
+    WidgetsBinding.instance.addObserver(this);
+    _sendIfNeeded();
+    // Notice verification automatically while this screen is in front.
+    _autoCheck = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (_foreground) _check();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _autoCheck?.cancel();
     super.dispose();
   }
 
-  void _startCooldown() {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    // Coming back from the email app: check straight away.
+    if (_foreground) _check();
+  }
+
+  /// Sends the link unless one was sent from this phone in the last minute
+  /// (e.g. just now at registration). Accounts created before verification
+  /// existed have no record, so they get their first email here.
+  Future<void> _sendIfNeeded() async {
+    final sentAt = await widget.service.verificationSentAt(widget.account.uid);
+    if (!mounted) return;
+    final age = sentAt == null ? null : DateTime.now().difference(sentAt);
+    if (age != null && age.inSeconds < _resendWait) {
+      setState(() => _sentAt = sentAt);
+      _startCooldown(_resendWait - age.inSeconds);
+    } else {
+      await _resend(automatic: true);
+    }
+  }
+
+  void _startCooldown([int seconds = _resendWait]) {
     _ticker?.cancel();
-    _cooldown = _resendWait;
+    _cooldown = seconds;
     _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return;
       setState(() => _cooldown = _cooldown > 0 ? _cooldown - 1 : 0);
@@ -80,8 +108,8 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
     }
   }
 
-  Future<void> _resend() async {
-    if (_sending || _cooldown > 0) return;
+  Future<void> _resend({bool automatic = false}) async {
+    if (_sending || (_cooldown > 0 && !automatic)) return;
     setState(() {
       _sending = true;
       _message = null;
@@ -90,7 +118,8 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
       await widget.service.sendEmailVerification();
       if (mounted) {
         setState(() {
-          _message = 'A new verification email was sent.';
+          _sentAt = DateTime.now();
+          _message = automatic ? null : 'A new verification email was sent.';
           _messageIsError = false;
         });
         _startCooldown();
@@ -167,7 +196,9 @@ class _VerifyEmailScreenState extends State<_VerifyEmailScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'We sent a verification link to\n${widget.account.email}\n\nOpen the email and tap the link, then come back here. Check your spam folder if you can\'t find it.',
+                    '${_sentAt == null ? (_sending ? 'Sending a verification link to' : 'A verification link will be sent to') : 'We sent a verification link to'}\n${widget.account.email}'
+                    '${_sentAt == null ? '' : '\n(sent at ${TimeOfDay.fromDateTime(_sentAt!).format(context)})'}'
+                    '\n\nOpen the email and tap the link, then come back here. Check your spam folder if you can\'t find it. The email comes from noreply@aegis-45002.firebaseapp.com.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,

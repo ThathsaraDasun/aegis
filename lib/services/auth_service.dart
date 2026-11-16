@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'live_sharing_service.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthAccount {
   final String uid;
@@ -24,6 +25,10 @@ abstract class AuthService {
 
   /// (Re)sends the verification link to the signed-in user's email.
   Future<void> sendEmailVerification();
+
+  /// When a verification link was last sent to [uid] from this phone, or
+  /// null if never (e.g. an account created before verification existed).
+  Future<DateTime?> verificationSentAt(String uid);
 
   /// Reloads the signed-in user and returns whether the email is verified.
   Future<bool> refreshEmailVerified();
@@ -65,9 +70,12 @@ class FirebaseAuthService implements AuthService {
       password: password,
     );
     // Send the verification link straight away. If this fails (e.g. offline),
-    // the verify screen offers "Resend email".
+    // the verify screen sends it again because no send time was recorded.
+    final user = credential.user;
+    if (user == null) return;
     try {
-      await credential.user?.sendEmailVerification();
+      await user.sendEmailVerification();
+      await _recordVerificationSent(user.uid);
     } catch (_) {}
   }
 
@@ -76,6 +84,27 @@ class FirebaseAuthService implements AuthService {
     final user = _auth.currentUser;
     if (user == null) throw StateError('Sign in first.');
     await user.sendEmailVerification();
+    await _recordVerificationSent(user.uid);
+  }
+
+  static String _sentKey(String uid) => 'verification_sent_$uid';
+
+  Future<void> _recordVerificationSent(String uid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_sentKey(uid), DateTime.now().millisecondsSinceEpoch);
+    } catch (_) {}
+  }
+
+  @override
+  Future<DateTime?> verificationSentAt(String uid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ms = prefs.getInt(_sentKey(uid));
+      return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
