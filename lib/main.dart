@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/auth/auth_gate.dart';
@@ -45,7 +46,7 @@ class AegisApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Aegis - Safe Walk',
     debugShowCheckedModeBanner: false,
-    theme: AegisTheme.light(),
+    theme: AegisTheme.dark(),
     home: SplashScreen(
       nextScreen: AuthGate(
         service: FirebaseAuthService(),
@@ -79,46 +80,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       surfaceTintColor: Colors.transparent,
       title: const Text('Aegis Safe Walk'),
       actions: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-          child: FilledButton.icon(
-            key: const Key('appbar-real-sos'),
-            onPressed: () => SafetyScope.of(context).manualSos(),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF007FFF),
-              padding: const EdgeInsets.fromLTRB(8, 0, 14, 0),
-              minimumSize: const Size(0, 36),
-              shape: const StadiumBorder(
-                side: BorderSide(color: Color(0xFF66CCFF), width: 1.5),
-              ),
-              elevation: 3,
-              shadowColor: Colors.black26,
-            ),
-            icon: Container(
-              width: 24,
-              height: 24,
-              decoration: const BoxDecoration(
-                color: Color(0xFF007FFF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.crisis_alert_rounded,
-                size: 15,
-                color: Colors.white,
-              ),
-            ),
-            label: const Text(
-              'SOS',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                letterSpacing: 1.5,
-                color: Color(0xFF007FFF),
-              ),
-            ),
-          ),
-        ),
         IconButton(
           tooltip: 'Compass',
           icon: const Icon(Icons.explore_outlined),
@@ -138,7 +99,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           icon: const Icon(Icons.logout),
           onPressed: () async {
             try {
-              await FirebaseAuthService().signOut();
+              await FirebaseAuth.instance.signOut();
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(
