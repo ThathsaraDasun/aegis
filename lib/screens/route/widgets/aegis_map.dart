@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../theme/aegis_theme.dart';
 
-/// Light OpenStreetMap base map (CARTO Voyager tiles – no API key) shared by the
+/// Standard OpenStreetMap tiles shared by the
 /// Safe Route screens. Pass overlay layers as [children].
 class AegisMap extends StatelessWidget {
   final MapController? controller;
@@ -49,15 +49,16 @@ class AegisMap extends StatelessWidget {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
-          retinaMode: RetinaMode.isHighDensity(context),
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.aegis.safewalk',
           maxZoom: 19,
+          maxNativeZoom: 19,
+          panBuffer: 0,
+          keepBuffer: 0,
         ),
         ...children,
         const SimpleAttributionWidget(
-          source: Text('© OpenStreetMap contributors © CARTO'),
+          source: Text('© OpenStreetMap contributors'),
           backgroundColor: Color(0xCCFFFFFF),
         ),
       ],
@@ -92,7 +93,11 @@ class MyLocationDot extends StatelessWidget {
 class DestinationPin extends StatelessWidget {
   final Color color;
   final IconData icon;
-  const DestinationPin({super.key, this.color = AegisColors.primary, this.icon = Icons.flag_rounded});
+  const DestinationPin({
+    super.key,
+    this.color = AegisColors.primary,
+    this.icon = Icons.flag_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +126,12 @@ class MapFab extends StatelessWidget {
   final VoidCallback onPressed;
   final String tooltip;
 
-  const MapFab({super.key, required this.icon, required this.onPressed, required this.tooltip});
+  const MapFab({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {

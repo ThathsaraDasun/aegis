@@ -10,6 +10,11 @@ import 'route/route_models.dart';
 
 export 'route/route_models.dart';
 
+class SafetyDataUnavailable implements Exception {
+  final String message;
+  const SafetyDataUnavailable(this.message);
+}
+
 /// Safe Route layer (Member 3): hazard reports + route safety scoring.
 ///
 /// * Hazard reports → `hazard_reports` collection, geohash-indexed.
@@ -17,9 +22,11 @@ export 'route/route_models.dart';
 /// * Lighting → OpenStreetMap `lit` tags via Overpass ([OsmLightingService]).
 /// * Scoring → [RouteSafetyScorer] (pure, unit-tested).
 class RouteSafetyService {
-  RouteSafetyService({FirebaseFirestore? firestore, OsmLightingService? lighting})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _lighting = lighting ?? OsmLightingService();
+  RouteSafetyService({
+    FirebaseFirestore? firestore,
+    OsmLightingService? lighting,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _lighting = lighting ?? OsmLightingService();
 
   final FirebaseFirestore _firestore;
   final OsmLightingService _lighting;
@@ -59,7 +66,9 @@ class RouteSafetyService {
 
   /// "I saw this too" – bumps the confirmation counter.
   Future<void> confirmHazard(String reportId) {
-    return _reports.doc(reportId).update({'confirmCount': FieldValue.increment(1)});
+    return _reports.doc(reportId).update({
+      'confirmCount': FieldValue.increment(1),
+    });
   }
 
   /// Lets the reporter remove their own pin.
@@ -78,48 +87,76 @@ class RouteSafetyService {
           .orderBy('reportedAt', descending: true)
           .limit(200)
           .snapshots()
-          .map((s) => s.docs.map((d) => HazardReportModel.fromMap(d.id, d.data())).toList());
+          .map(
+            (s) => s.docs
+                .map((d) => HazardReportModel.fromMap(d.id, d.data()))
+                .toList(),
+          );
     }
 
     final streams = GeoUtils.geohashPrefixesForRadius(center, radiusM)
-        .map((prefix) => _reports
-            .orderBy('geohash')
-            .startAt([prefix])
-            .endAt(['$prefix~'])
-            .snapshots()
-            .map((s) => s.docs
-                .map((d) => HazardReportModel.fromMap(d.id, d.data()))
-                .toList()))
+        .map(
+          (prefix) => _reports
+              .orderBy('geohash')
+              .startAt([prefix])
+              .endAt(['$prefix~'])
+              .snapshots()
+              .map(
+                (s) => s.docs
+                    .map((d) => HazardReportModel.fromMap(d.id, d.data()))
+                    .toList(),
+              ),
+        )
         .toList();
 
-    return CombineLatestStream.list<List<HazardReportModel>>(streams)
-        .map((lists) => _filterByDistance(lists.expand((l) => l), center, radiusM));
+    return CombineLatestStream.list<List<HazardReportModel>>(streams).map(
+      (lists) => _filterByDistance(lists.expand((l) => l), center, radiusM),
+    );
   }
 
   /// One-shot version of [streamNearbyHazards].
-  Future<List<HazardReportModel>> fetchHazardsNear(LatLng center, double radiusM) async {
+  Future<List<HazardReportModel>> fetchHazardsNear(
+    LatLng center,
+    double radiusM,
+  ) async {
     final prefixes = GeoUtils.geohashPrefixesForRadius(center, radiusM);
-    final snaps = await Future.wait(prefixes.map((prefix) => _reports
-        .orderBy('geohash')
-        .startAt([prefix])
-        .endAt(['$prefix~'])
-        .get()));
+    final snaps = await Future.wait(
+      prefixes.map(
+        (prefix) => _reports
+            .orderBy('geohash')
+            .startAt([prefix])
+            .endAt(['$prefix~'])
+            .get(const GetOptions(source: Source.server)),
+      ),
+    ).timeout(const Duration(seconds: 8));
     final all = snaps.expand(
-        (s) => s.docs.map((d) => HazardReportModel.fromMap(d.id, d.data())));
+      (s) => s.docs.map((d) => HazardReportModel.fromMap(d.id, d.data())),
+    );
     return _filterByDistance(all, center, radiusM);
   }
 
   List<HazardReportModel> _filterByDistance(
-      Iterable<HazardReportModel> reports, LatLng center, double radiusM) {
+    Iterable<HazardReportModel> reports,
+    LatLng center,
+    double radiusM,
+  ) {
     final unique = <String, HazardReportModel>{};
     for (final r in reports) {
       unique[r.id] = r;
     }
-    final within = unique.values
-        .where((r) => GeoUtils.distanceM(center, LatLng(r.lat, r.lng)) <= radiusM)
-        .toList()
-      ..sort((a, b) => GeoUtils.distanceM(center, LatLng(a.lat, a.lng))
-          .compareTo(GeoUtils.distanceM(center, LatLng(b.lat, b.lng))));
+    final within =
+        unique.values
+            .where(
+              (r) =>
+                  GeoUtils.distanceM(center, LatLng(r.lat, r.lng)) <= radiusM,
+            )
+            .toList()
+          ..sort(
+            (a, b) => GeoUtils.distanceM(
+              center,
+              LatLng(a.lat, a.lng),
+            ).compareTo(GeoUtils.distanceM(center, LatLng(b.lat, b.lng))),
+          );
     return within;
   }
 
@@ -128,26 +165,38 @@ class RouteSafetyService {
   // ---------------------------------------------------------------------------
 
   /// Scores several routes. Hazards are fetched once for the whole area and
-  /// lighting is fetched per route in parallel.
-  Future<List<RouteSafetyScore>> scoreRoutes(List<CandidateRoute> routes) async {
+  /// lighting is fetched in one batched request for the comparison.
+  Future<List<RouteSafetyScore>> scoreRoutes(
+    List<CandidateRoute> routes,
+  ) async {
     final allPoints = routes.expand((r) => r.points).toList();
     if (allPoints.isEmpty) return const [];
 
     final circle = GeoUtils.boundingCircle(allPoints);
     List<HazardReportModel> hazards;
     try {
-      hazards = await fetchHazardsNear(
-        circle.center,
-        circle.radiusM + RouteSafetyScorer.hazardBufferM + 50,
-      );
+      hazards = routes.every((route) => route.isDemo)
+          ? const []
+          : await fetchHazardsNear(
+              circle.center,
+              circle.radiusM + RouteSafetyScorer.hazardBufferM + 50,
+            );
     } catch (_) {
-      hazards = const []; // offline / not signed in – lighting still counts
+      // A failed read is not evidence that the route has no hazards.
+      throw const SafetyDataUnavailable(
+        'Hazard reports could not be loaded. These routes have not been safety-rated.',
+      );
     }
 
-    final lighting = await Future.wait(
-        routes.map((r) => r.isDemo
-            ? Future.value(const LightingSummary.unavailable())
-            : _lighting.lightingForRoute(r.points)));
+    final lighting = await _lighting
+        .lightingForRoutes(
+          routes.map((r) => r.isDemo ? <LatLng>[] : r.points).toList(),
+        )
+        .timeout(
+          const Duration(seconds: 26),
+          onTimeout: () =>
+              List.filled(routes.length, const LightingSummary.unavailable()),
+        );
 
     return [
       for (var i = 0; i < routes.length; i++)
@@ -161,7 +210,10 @@ class RouteSafetyService {
 
   /// Simple 0–100 score kept for backwards compatibility with the first
   /// version of the route screen.
-  static double calculateSafetyScore({required int hazardCount, required double lightingRatio}) {
+  static double calculateSafetyScore({
+    required int hazardCount,
+    required double lightingRatio,
+  }) {
     double baseScore = 100.0;
     baseScore -= (hazardCount * 15.0);
     baseScore += (lightingRatio * 30.0);
