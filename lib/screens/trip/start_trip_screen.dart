@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -7,7 +8,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/trip_model.dart';
 import '../../services/location_service.dart';
+import '../../services/alert_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/trip_share_service.dart';
 import '../../widgets/location_permission_prompt.dart';
 import 'live_map_screen.dart';
 import 'trip_map.dart';
@@ -21,10 +24,13 @@ class StartTripScreen extends StatefulWidget {
   final String? Function()? currentUserId;
   final Widget Function(String)? liveTripBuilder;
   final TileProvider? tileProvider;
+
   /// Pre-selected destination from the Route Comparison screen (Priority 4).
   final LatLng? presetDestination;
+
   /// Human-readable name for [presetDestination], e.g. from Nominatim search.
   final String? presetDestinationName;
+
   /// Planned route polyline to overlay on the live map.
   final List<LatLng>? presetRoutePoints;
   const StartTripScreen({
@@ -127,6 +133,53 @@ class _StartTripScreenState extends State<StartTripScreen> {
     }
   }
 
+  /// Starts live trip sharing and prepares the trip-start alert for all saved
+  /// guardians (sent automatically when automatic SMS is on; otherwise the
+  /// live map offers SMS/WhatsApp buttons). Skipped when Firebase is not
+  /// initialised (e.g. widget tests).
+  Future<({String? link, TripStartShare? share})> _shareWithGuardians({
+    required String uid,
+    required String tripId,
+    required Position position,
+    required LatLng destination,
+  }) async {
+    if (Firebase.apps.isEmpty) return (link: null, share: null);
+    String? link;
+    try {
+      link = await TripShareService.instance
+          .start(
+            tripId: tripId,
+            lat: position.latitude,
+            lng: position.longitude,
+            accuracy: position.accuracy,
+            fixTime: position.timestamp,
+            destination: {
+              'lat': destination.latitude,
+              'lng': destination.longitude,
+            },
+            destinationName: _destinationName,
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    TripStartShare? share;
+    try {
+      final contacts = await FirestoreService.instance
+          .getContacts(uid)
+          .timeout(const Duration(seconds: 8));
+      share = await AlertService.instance
+          .prepareTripStartShare(
+            userId: uid,
+            contactIds: [for (final c in contacts) c.id],
+            lat: position.latitude,
+            lng: position.longitude,
+            tripId: tripId,
+            liveLocationUrl: link,
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    return (link: link, share: share);
+  }
+
   Future<void> _start() async {
     if (_starting || _destination == null) return;
     setState(() {
@@ -164,6 +217,14 @@ class _StartTripScreenState extends State<StartTripScreen> {
             ),
           )
           .timeout(const Duration(seconds: 15));
+      // Share the live location with guardians and alert them. Failures here
+      // never block the trip itself.
+      final guardians = await _shareWithGuardians(
+        uid: uid,
+        tripId: id,
+        position: p,
+        destination: destination,
+      );
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -172,6 +233,8 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 LiveMapScreen(
                   tripId: id,
                   plannedRoutePoints: _plannedRoutePoints,
+                  guardianLink: guardians.link,
+                  guardianShare: guardians.share,
                 ),
           ),
         );

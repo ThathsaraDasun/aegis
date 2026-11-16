@@ -222,8 +222,8 @@ void main() {
     const mapsLink = 'https://maps.google.com/?q=6.9,79.8';
     late FakeStore store;
     late List<Uri> launches;
-    late List<Map<String, Object>> autoSends;
-    late bool autoEnabled;
+    late List<Map<String, Object>> tripSends;
+    late String tripState;
     late AlertService service;
     setUp(() {
       store = FakeStore()
@@ -233,8 +233,8 @@ void main() {
           ContactModel(id: 'demo_contact_1', name: 'Demo', phone: '+94770000000', relation: ''),
         ];
       launches = [];
-      autoSends = [];
-      autoEnabled = false;
+      tripSends = [];
+      tripState = 'sent';
       service = AlertService(
         firestoreService: store,
         currentUserId: () => 'u1',
@@ -243,15 +243,16 @@ void main() {
           return true;
         },
         showNotification: (_, _) async {},
-        automaticSmsEnabled: () => autoEnabled,
-        sendAutomaticSms: ({
+        sendTripSms: ({
           required String id,
           required String uid,
           required List<String> phones,
           required String message,
         }) async {
-          autoSends.add({'id': id, 'phones': phones, 'message': message});
-          return {'state': 'sent', 'message': 'Sent to ${phones.length}'};
+          tripSends.add({'id': id, 'phones': phones, 'message': message});
+          return tripState == 'blocked'
+              ? {'state': 'blocked', 'message': 'SMS permission was not granted.'}
+              : {'state': tripState, 'message': 'Sent to ${phones.length}'};
         },
       );
     });
@@ -281,12 +282,12 @@ void main() {
       }
     });
 
-    test('offers SMS and WhatsApp to selected real guardians without sending', () async {
+    test('falls back to SMS and WhatsApp buttons when automatic trip SMS is blocked', () async {
+      tripState = 'blocked';
       final share = await prepare(ids: ['mum'], liveLocationUrl: liveUrl);
       expect(share.contactCount, 1);
       expect(share.sentAutomatically, isFalse);
       expect(launches, isEmpty);
-      expect(autoSends, isEmpty);
       expect(share.whatsAppLinks.map((l) => l.name), ['Mum']);
       expect(Uri.decodeComponent(share.smsUri.toString()), contains(liveUrl));
       expect(share.smsUri.toString(), isNot(contains('94777654321')));
@@ -299,19 +300,44 @@ void main() {
       final none = await prepare(ids: ['demo_contact_1', 'unknown']);
       expect(none.contactCount, 0);
       expect(none.smsUri, isNull);
+      expect(tripSends, isEmpty);
       expect(await service.openTripStartSms(none), isFalse);
       expect(launches, isEmpty);
     });
 
-    test('sends automatically only when automatic SMS is enabled', () async {
-      autoEnabled = true;
+    test('trip start SMS is sent automatically from the SIM', () async {
       final share = await prepare();
       expect(share.sentAutomatically, isTrue);
       expect(share.automaticSmsMessage, 'Sent to 2');
-      expect(autoSends.single['id'], 'trip-start-trip-1');
-      expect(autoSends.single['phones'], hasLength(2));
-      expect(autoSends.single['message'], contains(mapsLink));
+      expect(tripSends.single['id'], 'trip-start-trip-1');
+      expect(tripSends.single['phones'], hasLength(2));
+      expect(tripSends.single['message'], contains(mapsLink));
       expect(launches, isEmpty);
+    });
+
+    test('trip end SMS is sent automatically to all real guardians', () async {
+      final share = await service.prepareTripEndShare(
+        userId: 'u1',
+        tripId: 'trip-1',
+        arrivedSafely: true,
+      );
+      expect(share.sentAutomatically, isTrue);
+      expect(tripSends.single['id'], 'trip-end-trip-1');
+      expect(tripSends.single['phones'], hasLength(2));
+      expect(tripSends.single['message'], contains('I have arrived safely'));
+      expect(launches, isEmpty);
+    });
+
+    test('unconfirmed trip end SMS includes the last location', () async {
+      await service.prepareTripEndShare(
+        userId: 'u1',
+        tripId: 'trip-1',
+        arrivedSafely: false,
+        lat: 6.9,
+        lng: 79.8,
+      );
+      expect(tripSends.single['message'], contains('Please check on me'));
+      expect(tripSends.single['message'], contains(mapsLink));
     });
 
     test('contact read failures are reported, not swallowed', () async {

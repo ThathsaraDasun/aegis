@@ -80,6 +80,53 @@ service cloud.firestore {
       allow delete: if owner();
     }
 
+    // Trip location sharing: same capability model as live_shares (random
+    // 256-bit token, get-only, never list), but tied to one trip and limited
+    // to 12 hours. The app revokes it when the trip ends. Only position and
+    // destination data belong here, never contact/medical/profile data.
+    match /trip_shares/{token} {
+      function tripOwner() {
+        return request.auth != null && resource.data.ownerUid == request.auth.uid;
+      }
+      function tripPosition(d) {
+        return (d.lat == null && d.lng == null && d.accuracy == null && d.fixAt == null)
+          || (d.lat is number && d.lat >= -90 && d.lat <= 90
+            && d.lng is number && d.lng >= -180 && d.lng <= 180
+            && d.accuracy is number && d.accuracy >= 0 && d.accuracy <= 100
+            && d.fixAt is timestamp && d.fixAt <= request.time + duration.value(1, 'm'));
+      }
+      function tripDestination(d) {
+        return ((d.destLat == null && d.destLng == null)
+            || (d.destLat is number && d.destLat >= -90 && d.destLat <= 90
+              && d.destLng is number && d.destLng >= -180 && d.destLng <= 180))
+          && (d.destName == null || (d.destName is string && d.destName.size() <= 120));
+      }
+      allow get: if resource.data.active == true && request.time < resource.data.expiresAt;
+      allow list: if false;
+      allow create: if request.auth != null && token.matches('^[a-f0-9]{64}$')
+        && request.resource.data.keys().hasAll(['ownerUid', 'tripId', 'active', 'createdAt', 'expiresAt', 'updatedAt', 'lat', 'lng', 'accuracy', 'fixAt', 'destLat', 'destLng', 'destName'])
+        && request.resource.data.keys().hasOnly(['ownerUid', 'tripId', 'active', 'createdAt', 'expiresAt', 'updatedAt', 'lat', 'lng', 'accuracy', 'fixAt', 'destLat', 'destLng', 'destName'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.tripId is string
+        && request.resource.data.tripId.size() > 0 && request.resource.data.tripId.size() <= 100
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(12, 'h')
+        && tripPosition(request.resource.data)
+        && tripDestination(request.resource.data);
+      // Revocation cannot be reversed and the expiry cannot be extended.
+      allow update: if tripOwner() && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+          && request.resource.data.active == false)
+        || (resource.data.active == true && request.time < resource.data.expiresAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lat', 'lng', 'accuracy', 'fixAt', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time && tripPosition(request.resource.data)));
+      allow delete: if tripOwner();
+    }
+
     // Hazard reports collection:
     // - read: any signed-in user
     // - create: signed-in user with valid category and integer confirmCount

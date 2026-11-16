@@ -55,6 +55,37 @@ class AutomaticSmsService {
     if (supported) await _channel.invokeMethod('smsDisable');
   }
 
+  /// Sends a trip start/end message to guardians from the SIM, automatically.
+  ///
+  /// Unlike [send] (SOS), this does not need the "Automatic guardian SMS"
+  /// opt-in and does not change it; it asks for SMS permission once. Returns
+  /// a `blocked` state (so the app offers manual SMS/WhatsApp instead) when
+  /// permission is denied or the phone has no SMS SIM.
+  static Future<Map<dynamic, dynamic>> sendTripMessage({
+    required String id,
+    required String uid,
+    required List<String> phones,
+    required String message,
+  }) async {
+    if (!supported) {
+      return {'state': 'blocked', 'message': 'Automatic SMS needs Android.'};
+    }
+    if (await _channel.invokeMethod<bool>('smsPermission') != true) {
+      return {'state': 'blocked', 'message': 'SMS permission was not granted.'};
+    }
+    return await _channel
+            .invokeMapMethod('smsSendTrip', {
+              'id': id,
+              'phones': phones,
+              'message': message,
+            })
+            .timeout(const Duration(seconds: 25)) ??
+        {
+          'state': 'uncertain',
+          'message': 'SMS result unknown. Check Messages before trying again.',
+        };
+  }
+
   static Future<Map<dynamic, dynamic>> send({
     required String id,
     required String uid,
