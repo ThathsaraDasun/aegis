@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
+import '../../services/phone_validation.dart';
 import 'login_screen.dart';
 
 /// Shown after registration (or for any unverified account) until the user
@@ -370,7 +372,9 @@ class _ProfileGateState extends State<_ProfileGate> {
       await widget.service.saveProfile(
         widget.account.uid,
         _name.text,
-        _phone.text,
+        _phone.text.trim().isEmpty
+            ? ''
+            : PhoneValidation.normalize(_phone.text),
       );
       if (mounted) setState(() => _profile = Future.value(true));
     } catch (e) {
@@ -454,15 +458,13 @@ class _ProfileGateState extends State<_ProfileGate> {
                             labelText: 'Phone (optional)',
                           ),
                           keyboardType: TextInputType.phone,
-                          validator: (v) {
-                            final value = (v ?? '').trim();
-                            if (value.isEmpty) return null;
-                            return RegExp(
-                                  r'^\+?[0-9 ()-]{7,20}$',
-                                ).hasMatch(value)
-                                ? null
-                                : 'Enter a valid phone number.';
-                          },
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9+\s\-()]'),
+                            ),
+                          ],
+                          validator: (v) =>
+                              PhoneValidation.validate(v, required: false),
                         ),
                         const SizedBox(height: 24),
                         FilledButton(
