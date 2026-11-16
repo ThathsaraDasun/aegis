@@ -11,7 +11,7 @@ import '../services/profile_photo_service.dart';
 /// change or remove the photo.
 ///
 /// Used by both the Profile and Edit Profile pages, so they always show the
-/// same photo: a change on either page updates the other immediately.
+/// same photo: a change on either page updates the other immediately in real-time.
 class ProfilePhotoAvatar extends StatefulWidget {
   final String uid;
   final String initials;
