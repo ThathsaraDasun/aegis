@@ -16,7 +16,14 @@ val newBuildDir: Directory =
 rootProject.layout.buildDirectory.value(newBuildDir)
 
 subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
+    // Android test configuration requires source and build paths on the same drive.
+    // Flutter's Pub cache may be on a different Windows drive from this project.
+    val newSubprojectBuildDir: Directory =
+        if (project.projectDir.toPath().root == newBuildDir.asFile.toPath().root) {
+            newBuildDir.dir(project.name)
+        } else {
+            project.layout.projectDirectory.dir("build")
+        }
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 
     tasks.withType<JavaCompile>().configureEach {
@@ -25,6 +32,10 @@ subprojects {
     }
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        // Kotlin incremental caches also resolve plugin sources against the root project.
+        if (project.projectDir.toPath().root != rootProject.projectDir.toPath().root) {
+            incremental = false
+        }
         kotlinOptions {
             jvmTarget = "17"
         }
@@ -40,4 +51,5 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+    delete(subprojects.map { it.layout.buildDirectory })
 }

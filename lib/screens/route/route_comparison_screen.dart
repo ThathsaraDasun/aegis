@@ -164,14 +164,6 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     }
   }
 
-  void _moveCamera(LatLng point, double zoom) {
-    try {
-      _map.move(point, zoom);
-    } catch (_) {
-      // Map not ready yet.
-    }
-  }
-
   void _reset() {
     _requestId++;
     setState(() {
@@ -182,7 +174,7 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       _error = null;
       _loading = false;
     });
-    if (_origin != null) _moveCamera(_origin!, 16);
+    if (_origin != null) _map.move(_origin!, 16);
   }
 
   void _choose() {
