@@ -36,20 +36,25 @@ class SafetyController extends ChangeNotifier {
     _notify();
     try {
       if (enabled) {
-        final count = await AutomaticSmsService.enable();
+        final result = await AutomaticSmsService.enable();
         if (_disposed) {
           await AutomaticSmsService.disable();
           return;
         }
         notice =
-            'Automatic SMS enabled for $count guardian(s). SMS charges may apply. Re-enable after changing guardians.';
+            'Automatic SMS enabled for ${result.count} guardian(s). SMS charges may apply. Re-enable after changing guardians.'
+            '${result.skipped.isEmpty ? '' : ' Not included – fix their number in the Guardians tab: ${result.skipped.join(', ')}.'}';
       } else {
         await AutomaticSmsService.disable();
         notice = 'Automatic SMS off. Messages require you to tap Send.';
       }
     } catch (e) {
       await AutomaticSmsService.disable();
-      notice = e is PlatformException ? e.message : '$e';
+      notice = switch (e) {
+        PlatformException(:final message) => message,
+        StateError(:final message) => message,
+        _ => 'Could not turn on automatic SMS. Please try again.',
+      };
     } finally {
       await _applySmsToRunningMonitor();
       changingSms = false;
