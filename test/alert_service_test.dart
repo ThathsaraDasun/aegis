@@ -216,4 +216,110 @@ void main() {
       expect(launches, isEmpty);
     });
   });
+
+  group('Trip start guardian message', () {
+    const liveUrl = 'https://aegis-45002.web.app/sos/#abc123';
+    const mapsLink = 'https://maps.google.com/?q=6.9,79.8';
+    late FakeStore store;
+    late List<Uri> launches;
+    late List<Map<String, Object>> autoSends;
+    late bool autoEnabled;
+    late AlertService service;
+    setUp(() {
+      store = FakeStore()
+        ..contacts = [
+          ContactModel(id: 'mum', name: 'Mum', phone: '0771234567', relation: ''),
+          ContactModel(id: 'dad', name: 'Dad', phone: '+94777654321', relation: ''),
+          ContactModel(id: 'demo_contact_1', name: 'Demo', phone: '+94770000000', relation: ''),
+        ];
+      launches = [];
+      autoSends = [];
+      autoEnabled = false;
+      service = AlertService(
+        firestoreService: store,
+        currentUserId: () => 'u1',
+        launchExternal: (uri) async {
+          launches.add(uri);
+          return true;
+        },
+        showNotification: (_, _) async {},
+        automaticSmsEnabled: () => autoEnabled,
+        sendAutomaticSms: ({
+          required String id,
+          required String uid,
+          required List<String> phones,
+          required String message,
+        }) async {
+          autoSends.add({'id': id, 'phones': phones, 'message': message});
+          return {'state': 'sent', 'message': 'Sent to ${phones.length}'};
+        },
+      );
+    });
+    Future<TripStartShare> prepare({
+      List<String> ids = const ['mum', 'dad', 'demo_contact_1'],
+      String? liveLocationUrl,
+    }) => service.prepareTripStartShare(
+      userId: 'u1',
+      contactIds: ids,
+      lat: 6.9,
+      lng: 79.8,
+      tripId: 'trip-1',
+      liveLocationUrl: liveLocationUrl,
+    );
+
+    test('message uses the live link, or the Google Maps link without one', () {
+      expect(
+        AlertService.buildTripStartMessage(lat: 6.9, lng: 79.8, liveLocationUrl: liveUrl),
+        'I started a Safe Walk. Follow my live location: $liveUrl',
+      );
+      for (final bad in <String?>[null, '', 'not a link', 'http://example.com/x', 'javascript:alert(1)']) {
+        expect(
+          AlertService.buildTripStartMessage(lat: 6.9, lng: 79.8, liveLocationUrl: bad),
+          'I started a Safe Walk. Follow my live location: $mapsLink',
+          reason: '$bad',
+        );
+      }
+    });
+
+    test('offers SMS and WhatsApp to selected real guardians without sending', () async {
+      final share = await prepare(ids: ['mum'], liveLocationUrl: liveUrl);
+      expect(share.contactCount, 1);
+      expect(share.sentAutomatically, isFalse);
+      expect(launches, isEmpty);
+      expect(autoSends, isEmpty);
+      expect(share.whatsAppLinks.map((l) => l.name), ['Mum']);
+      expect(Uri.decodeComponent(share.smsUri.toString()), contains(liveUrl));
+      expect(share.smsUri.toString(), isNot(contains('94777654321')));
+
+      expect(await service.openTripStartSms(share), isTrue);
+      expect(launches.single.scheme, 'sms');
+    });
+
+    test('demo contacts and unselected guardians are skipped', () async {
+      final none = await prepare(ids: ['demo_contact_1', 'unknown']);
+      expect(none.contactCount, 0);
+      expect(none.smsUri, isNull);
+      expect(await service.openTripStartSms(none), isFalse);
+      expect(launches, isEmpty);
+    });
+
+    test('sends automatically only when automatic SMS is enabled', () async {
+      autoEnabled = true;
+      final share = await prepare();
+      expect(share.sentAutomatically, isTrue);
+      expect(share.automaticSmsMessage, 'Sent to 2');
+      expect(autoSends.single['id'], 'trip-start-trip-1');
+      expect(autoSends.single['phones'], hasLength(2));
+      expect(autoSends.single['message'], contains(mapsLink));
+      expect(launches, isEmpty);
+    });
+
+    test('contact read failures are reported, not swallowed', () async {
+      store.deniedStage = 'contacts';
+      await expectLater(
+        prepare(),
+        throwsA(isA<AlertOperationException>().having((e) => e.code, 'code', 'permission-denied')),
+      );
+    });
+  });
 }

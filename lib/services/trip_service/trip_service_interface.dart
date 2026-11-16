@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../../core/models/lat_lng.dart';
 import '../../models/trip_model.dart';
+import '../alert_service.dart';
 
 /// Abstract interface for TripService to allow mocking.
 abstract class ITripService {
@@ -12,6 +13,9 @@ abstract class ITripService {
     required List<String> contactIds,
     String routeChosen = 'default_route',
   });
+
+  /// The trip-start guardian message prepared by [startTrip], or null.
+  Future<TripStartShare>? tripStartShare(String tripId);
 
   /// Streams live location coordinates for map marker binding.
   Stream<LatLng> liveLocationStream(String tripId);
@@ -45,6 +49,9 @@ class MockTripService implements ITripService {
     await Future.delayed(const Duration(milliseconds: 500));
     return 'mock_trip_id_123';
   }
+
+  @override
+  Future<TripStartShare>? tripStartShare(String tripId) => null;
 
   @override
   Stream<LatLng> liveLocationStream(String tripId) async* {
