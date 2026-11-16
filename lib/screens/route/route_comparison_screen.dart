@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/hazard_report_model.dart';
+import '../../screens/trip/start_trip_screen.dart';
 import '../../services/route/geo_utils.dart';
 import '../../services/route/position_helper.dart';
 import '../../services/route/route_planner_service.dart';
@@ -160,11 +161,15 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       widget.onRouteChosen!(route, score);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            '${route.label} selected · safety ${score.score} · ${route.durationMin} min walk'),
-        backgroundColor: AegisColors.tertiaryContainer,
+    // Priority 4: navigate directly to StartTripScreen with the chosen
+    // destination and route polyline pre-filled (Members 2 & 3).
+    final dest = _destination!;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StartTripScreen(
+          presetDestination: dest,
+          presetRoutePoints: route.points,
+        ),
       ),
     );
   }
