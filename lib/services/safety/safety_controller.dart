@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../live_sharing_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/alert_model.dart';
@@ -404,7 +405,11 @@ class SafetyController extends ChangeNotifier {
     error = null;
     _notify();
     try {
-      await gateway.resolve(result!.alertId);
+      if (result!.recorded) {
+        await gateway.resolve(result!.alertId);
+      } else {
+        await LiveSharingService.stop();
+      }
       if (!_disposed) resolved = true;
     } catch (e) {
       if (!_disposed) error = authErrorMessage(e);
