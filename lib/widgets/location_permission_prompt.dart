@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../theme/aegis_theme.dart';
 import '../services/location_service.dart';
 
+/// Reusable location permission & GPS recovery prompt widget (Member 2).
 class LocationPermissionPrompt extends StatelessWidget {
   final LocationStatus status;
   final VoidCallback onRetry;
