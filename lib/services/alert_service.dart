@@ -89,8 +89,9 @@ class AlertService {
   final Future<bool> Function(Uri) _launch;
   final String? Function() _currentUserId;
   final Future<void> Function(String, String)? _notificationOverride;
-  final bool Function() _automaticSmsEnabled;
-  final AutomaticSmsSender _sendAutomaticSms;
+
+  /// Sends trip start/end messages automatically from the SIM.
+  final AutomaticSmsSender _sendTripSms;
   static final AlertService instance = AlertService();
 
   AlertService({
@@ -99,9 +100,9 @@ class AlertService {
     Future<bool> Function(Uri)? launchExternal,
     String? Function()? currentUserId,
     Future<void> Function(String, String)? showNotification,
-    bool Function()? automaticSmsEnabled,
-    AutomaticSmsSender? sendAutomaticSms,
-  }) : _firestoreService = firestoreService ?? FirestoreService.instance,
+    AutomaticSmsSender? sendTripSms,
+  }) : _sendTripSms = sendTripSms ?? AutomaticSmsService.sendTripMessage,
+       _firestoreService = firestoreService ?? FirestoreService.instance,
        _localNotifications =
            localNotifications ?? FlutterLocalNotificationsPlugin(),
        _launch =
@@ -109,10 +110,7 @@ class AlertService {
            ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication)),
        _currentUserId =
            currentUserId ?? (() => FirebaseAuth.instance.currentUser?.uid),
-       _notificationOverride = showNotification,
-       _automaticSmsEnabled =
-           automaticSmsEnabled ?? (() => AutomaticSmsService.enabled),
-       _sendAutomaticSms = sendAutomaticSms ?? AutomaticSmsService.send;
+       _notificationOverride = showNotification;
 
   /// Trip-start text with [liveLocationUrl] when an https live link is
   /// available, otherwise a Google Maps link to [lat],[lng].
@@ -219,20 +217,25 @@ class AlertService {
             )
             .toList();
     final phones = contacts.map(_phone).toSet().toList();
+    // Trip start/end messages always go out automatically from the SIM
+    // (independent of the SOS "Automatic guardian SMS" opt-in). If that is
+    // not possible (no permission / no SIM / error), fall back to the manual
+    // SMS and WhatsApp buttons.
     String? automaticSmsMessage;
-    if (phones.isNotEmpty && _automaticSmsEnabled()) {
+    if (phones.isNotEmpty) {
       _checkUser(userId);
       try {
-        final status = await _sendAutomaticSms(
+        final status = await _sendTripSms(
           id: smsId,
           uid: userId,
           phones: phones,
           message: message,
         );
-        automaticSmsMessage = '${status['message']}';
+        if (status['state'] != 'blocked') {
+          automaticSmsMessage = '${status['message']}';
+        }
       } catch (_) {
-        automaticSmsMessage =
-            'Automatic SMS result unknown. Check your Messages app before sending again; delivery is not confirmed.';
+        // Not sent automatically: the user can still send it manually.
       }
     }
     return TripStartShare(

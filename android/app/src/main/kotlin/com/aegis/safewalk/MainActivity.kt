@@ -53,12 +53,16 @@ class MainActivity: FlutterActivity() {
                     } catch (_: Exception) { AutomaticSms.clear(); result.error("sms_configuration", "Use international guardian numbers, including the country code.", null) }
                 }
                 "smsDisable" -> { AutomaticSms.clear(); result.success(null) }
-                "smsSend" -> {
+                "smsSend", "smsSendTrip" -> {
                     val id = call.argument<String>("id") ?: ""
                     if (!id.matches(Regex("^[a-zA-Z0-9_-]{1,100}$"))) result.error("id", "Invalid alert ID", null)
                     else {
                         try {
-                            val initial = AutomaticSms.send(this, id, call.argument<String>("uid") ?: "", call.argument<List<String>>("phones") ?: emptyList(), call.argument<String>("message") ?: "")
+                            val phones = call.argument<List<String>>("phones") ?: emptyList()
+                            val message = call.argument<String>("message") ?: ""
+                            // Trip messages send from the SIM without the SOS opt-in.
+                            val initial = if (call.method == "smsSendTrip") AutomaticSms.sendTrip(this, id, phones, message)
+                                else AutomaticSms.send(this, id, call.argument<String>("uid") ?: "", phones, message)
                             if (initial["state"] == "blocked") result.success(initial)
                             else {
                                 val handler = Handler(Looper.getMainLooper())

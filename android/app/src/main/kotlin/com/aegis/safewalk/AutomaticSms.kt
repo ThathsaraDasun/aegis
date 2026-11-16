@@ -27,12 +27,31 @@ object AutomaticSms {
     }
     private fun problem(c: Context): String? {
         if (!enabled) return "Automatic SMS is off."
+        return deviceProblem(c)
+    }
+    /** Permission / SIM checks shared by SOS SMS and trip SMS. */
+    private fun deviceProblem(c: Context): String? {
         if (c.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) return "SMS permission is missing."
         if (!c.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) return "This device cannot send SIM SMS."
         if (!SubscriptionManager.isValidSubscriptionId(SubscriptionManager.getDefaultSmsSubscriptionId())) return "Select a default SMS SIM in Android Settings and check that a SIM is installed."
         return null
     }
     fun readiness(c: Context) = problem(c)
+
+    /**
+     * Trip start/end messages: always sent automatically from the SIM when SMS
+     * permission is granted. Independent of the SOS opt-in ([enabled]), so it
+     * never changes SOS behaviour. Same duplicate protection as [send].
+     */
+    @Synchronized fun sendTrip(c: Context, id: String, numbers: List<String>, message: String): Map<String, Any> {
+        if (prefs(c).contains(id)) return status(c, id)
+        val reason = deviceProblem(c)
+        if (reason != null || numbers.isEmpty() || numbers.size > 10 ||
+            numbers.any { !it.matches(Regex("^\\+[1-9][0-9]{6,14}$")) } || message.length > 1600) {
+            return mapOf("state" to "blocked", "message" to (reason ?: "Guardian numbers must be international, for example +94771234567."), "count" to 0)
+        }
+        return submit(c, id, numbers, message)
+    }
 
     @Synchronized fun send(c: Context, id: String, uid: String, numbers: List<String>, message: String): Map<String, Any> {
         // The same incident ID is never submitted twice, even after process restart.
@@ -42,6 +61,10 @@ object AutomaticSms {
             numbers.any { !it.matches(Regex("^\\+[1-9][0-9]{6,14}$")) } || message.length > 1600) {
             return mapOf("state" to "blocked", "message" to (reason ?: "SMS configuration changed; enable automatic SMS again."), "count" to 0)
         }
+        return submit(c, id, numbers, message)
+    }
+
+    private fun submit(c: Context, id: String, numbers: List<String>, message: String): Map<String, Any> {
         val manager = SmsManager.getSmsManagerForSubscriptionId(SubscriptionManager.getDefaultSmsSubscriptionId())
         val parts = manager.divideMessage(message)
         val recipients = numbers.distinct()
