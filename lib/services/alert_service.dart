@@ -51,6 +51,36 @@ class AlertTriggerResult {
   });
 }
 
+/// Guardian message prepared when a trip starts.
+///
+/// Nothing is sent unless the user opted in to automatic SMS
+/// ([automaticSmsMessage] is then set). Otherwise the UI offers [smsUri] and
+/// [whatsAppLinks], and the user decides whether to send.
+class TripStartShare {
+  final String message;
+  final int contactCount;
+  final Uri? smsUri;
+  final List<GuardianWhatsAppLink> whatsAppLinks;
+  final String? automaticSmsMessage;
+  const TripStartShare({
+    required this.message,
+    required this.contactCount,
+    this.smsUri,
+    this.whatsAppLinks = const [],
+    this.automaticSmsMessage,
+  });
+
+  bool get sentAutomatically => automaticSmsMessage != null;
+}
+
+typedef AutomaticSmsSender =
+    Future<Map<dynamic, dynamic>> Function({
+      required String id,
+      required String uid,
+      required List<String> phones,
+      required String message,
+    });
+
 /// Member 4's public API, hardened for Member 1's foreground SOS integration.
 /// An opened composer/dialer is never treated as confirmed remote delivery.
 class AlertService {
@@ -59,6 +89,8 @@ class AlertService {
   final Future<bool> Function(Uri) _launch;
   final String? Function() _currentUserId;
   final Future<void> Function(String, String)? _notificationOverride;
+  final bool Function() _automaticSmsEnabled;
+  final AutomaticSmsSender _sendAutomaticSms;
   static final AlertService instance = AlertService();
 
   AlertService({
@@ -67,6 +99,8 @@ class AlertService {
     Future<bool> Function(Uri)? launchExternal,
     String? Function()? currentUserId,
     Future<void> Function(String, String)? showNotification,
+    bool Function()? automaticSmsEnabled,
+    AutomaticSmsSender? sendAutomaticSms,
   }) : _firestoreService = firestoreService ?? FirestoreService.instance,
        _localNotifications =
            localNotifications ?? FlutterLocalNotificationsPlugin(),
@@ -75,7 +109,104 @@ class AlertService {
            ((uri) => launchUrl(uri, mode: LaunchMode.externalApplication)),
        _currentUserId =
            currentUserId ?? (() => FirebaseAuth.instance.currentUser?.uid),
-       _notificationOverride = showNotification;
+       _notificationOverride = showNotification,
+       _automaticSmsEnabled =
+           automaticSmsEnabled ?? (() => AutomaticSmsService.enabled),
+       _sendAutomaticSms = sendAutomaticSms ?? AutomaticSmsService.send;
+
+  /// Trip-start text with [liveLocationUrl] when an https live link is
+  /// available, otherwise a Google Maps link to [lat],[lng].
+  static String buildTripStartMessage({
+    required double lat,
+    required double lng,
+    String? liveLocationUrl,
+  }) {
+    final live = Uri.tryParse(liveLocationUrl ?? '');
+    final link = live != null && live.isScheme('https') && live.host.isNotEmpty
+        ? liveLocationUrl!
+        : 'https://maps.google.com/?q=$lat,$lng';
+    return 'I started a Safe Walk. Follow my live location: $link';
+  }
+
+  /// Prepares the trip-start message for the selected guardians
+  /// ([contactIds] are trusted-contact IDs under `users/{uid}/contacts`).
+  ///
+  /// Sends automatically only when automatic SMS is enabled; otherwise it
+  /// launches nothing and returns SMS/WhatsApp links for the user to tap.
+  Future<TripStartShare> prepareTripStartShare({
+    required String userId,
+    required List<String> contactIds,
+    required double lat,
+    required double lng,
+    required String tripId,
+    String? liveLocationUrl,
+  }) async {
+    _checkUser(userId);
+    final selected = contactIds.toSet();
+    final contacts = (await _databaseStep(
+      'reading your guardian contacts',
+      () => _firestoreService
+          .getContacts(userId)
+          .timeout(const Duration(seconds: 8)),
+    )).where(
+      (c) =>
+          selected.contains(c.id) &&
+          !c.id.startsWith('demo_') &&
+          _phone(c).isNotEmpty,
+    ).toList();
+    final phones = contacts.map(_phone).toSet().toList();
+    final message = buildTripStartMessage(
+      lat: lat,
+      lng: lng,
+      liveLocationUrl: liveLocationUrl,
+    );
+    String? automaticSmsMessage;
+    if (phones.isNotEmpty && _automaticSmsEnabled()) {
+      _checkUser(userId);
+      try {
+        final status = await _sendAutomaticSms(
+          id: 'trip-start-$tripId',
+          uid: userId,
+          phones: phones,
+          message: message,
+        );
+        automaticSmsMessage = '${status['message']}';
+      } catch (_) {
+        automaticSmsMessage =
+            'Automatic SMS result unknown. Check your Messages app before sending again; delivery is not confirmed.';
+      }
+    }
+    return TripStartShare(
+      message: message,
+      contactCount: phones.length,
+      automaticSmsMessage: automaticSmsMessage,
+      smsUri: phones.isEmpty
+          ? null
+          : Uri.parse(
+              'sms:${phones.join(',')}?body=${Uri.encodeComponent(message)}',
+            ),
+      whatsAppLinks: List.unmodifiable([
+        for (final phone in phones)
+          if (whatsAppUri(phone, message) case final Uri uri)
+            GuardianWhatsAppLink(
+              contacts.firstWhere((c) => _phone(c) == phone).name,
+              uri,
+            ),
+      ]),
+    );
+  }
+
+  /// Opens the SMS composer for a prepared trip-start message when the user
+  /// taps to notify guardians. Returns whether the composer opened.
+  Future<bool> openTripStartSms(TripStartShare share) async {
+    final uri = share.smsUri;
+    if (uri == null) return false;
+    try {
+      return await _launch(uri);
+    } catch (_) {
+      return false;
+    }
+  }
 
   Future<void> init() async {
     await _localNotifications.initialize(
