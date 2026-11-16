@@ -10,6 +10,7 @@ import '../../services/route/route_planner_service.dart';
 import '../../services/route_safety_service.dart';
 import '../../theme/aegis_theme.dart';
 import '../../widgets/aegis_empty_state.dart';
+import '../trip/start_trip_screen.dart';
 import 'nearby_hazards_screen.dart';
 import 'report_hazard_screen.dart';
 import 'widgets/aegis_map.dart';
@@ -160,11 +161,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       widget.onRouteChosen!(route, score);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            '${route.label} selected · safety ${score.score} · ${route.durationMin} min walk'),
-        backgroundColor: AegisColors.tertiaryContainer,
+    final dest = route.points.isNotEmpty ? route.points.last : _destination;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StartTripScreen(
+          initialDestination: dest,
+          initialDestinationName: '${route.label} (${route.durationMin} min walk)',
+        ),
       ),
     );
   }
