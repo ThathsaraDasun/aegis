@@ -116,7 +116,8 @@ class TripCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Lat: ${trip.destination['lat']?.toStringAsFixed(4)}, Lng: ${trip.destination['lng']?.toStringAsFixed(4)}',
+                      trip.destinationName ??
+                          'Lat: ${trip.destination['lat']?.toStringAsFixed(4)}, Lng: ${trip.destination['lng']?.toStringAsFixed(4)}',
                       style: GoogleFonts.outfit(
                         color: AegisColors.textPrimary,
                         fontSize: 16,

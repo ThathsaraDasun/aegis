@@ -21,6 +21,12 @@ class StartTripScreen extends StatefulWidget {
   final String? Function()? currentUserId;
   final Widget Function(String)? liveTripBuilder;
   final TileProvider? tileProvider;
+  /// Pre-selected destination from the Route Comparison screen (Priority 4).
+  final LatLng? presetDestination;
+  /// Human-readable name for [presetDestination], e.g. from Nominatim search.
+  final String? presetDestinationName;
+  /// Planned route polyline to overlay on the live map.
+  final List<LatLng>? presetRoutePoints;
   const StartTripScreen({
     super.key,
     this.store,
@@ -29,6 +35,9 @@ class StartTripScreen extends StatefulWidget {
     this.currentUserId,
     this.liveTripBuilder,
     this.tileProvider,
+    this.presetDestination,
+    this.presetDestinationName,
+    this.presetRoutePoints,
   });
   @override
   State<StartTripScreen> createState() => _StartTripScreenState();
@@ -45,6 +54,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
   String? _error;
   final _mapController = MapController();
   String? _destinationName;
+  List<LatLng> _plannedRoutePoints = const [];
 
   @override
   void dispose() {
@@ -74,6 +84,12 @@ class _StartTripScreenState extends State<StartTripScreen> {
   @override
   void initState() {
     super.initState();
+    // Apply preset destination from route comparison (Priority 4).
+    if (widget.presetDestination != null) {
+      _destination = widget.presetDestination;
+      _destinationName = widget.presetDestinationName;
+      _plannedRoutePoints = widget.presetRoutePoints ?? const [];
+    }
     _locate();
   }
 
@@ -144,6 +160,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 'lng': destination.longitude,
               },
               startedAt: DateTime.now(),
+              destinationName: _destinationName,
             ),
           )
           .timeout(const Duration(seconds: 15));
@@ -151,7 +168,11 @@ class _StartTripScreenState extends State<StartTripScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) =>
-                widget.liveTripBuilder?.call(id) ?? LiveMapScreen(tripId: id),
+                widget.liveTripBuilder?.call(id) ??
+                LiveMapScreen(
+                  tripId: id,
+                  plannedRoutePoints: _plannedRoutePoints,
+                ),
           ),
         );
       }
@@ -205,16 +226,18 @@ class _StartTripScreenState extends State<StartTripScreen> {
               ),
               Expanded(
                 child: TripMap(
-                  center: _origin!,
+                  center: _destination ?? _origin!,
                   controller: _mapController,
                   tileProvider: widget.tileProvider,
                   current: _origin,
                   destination: _destination,
+                  plannedRoute: _plannedRoutePoints,
                   onTap: _starting
                       ? null
                       : (point) => setState(() {
                           _destination = point;
                           _destinationName = null;
+                          _plannedRoutePoints = const [];
                         }),
                 ),
               ),

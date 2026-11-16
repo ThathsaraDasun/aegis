@@ -23,6 +23,8 @@ class TripMap extends StatelessWidget {
   final LatLng? current;
   final LatLng? destination;
   final List<LatLng> trail;
+  /// Optional planned-route polyline (from route comparison), shown in purple.
+  final List<LatLng> plannedRoute;
   final MapController? controller;
   final ValueChanged<LatLng>? onTap;
   final VoidCallback? onReady;
@@ -33,6 +35,7 @@ class TripMap extends StatelessWidget {
     this.current,
     this.destination,
     this.trail = const [],
+    this.plannedRoute = const [],
     this.controller,
     this.onTap,
     this.onReady,
@@ -66,6 +69,17 @@ class TripMap extends StatelessWidget {
               PolylineLayer(
                 polylines: [
                   Polyline(points: trail, color: Colors.blue, strokeWidth: 5),
+                ],
+              ),
+            // Planned route from route comparison (shown first so live trail sits on top).
+            if (plannedRoute.length > 1)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: plannedRoute,
+                    color: const Color(0x99B388FF), // soft purple, semi-transparent
+                    strokeWidth: 6,
+                  ),
                 ],
               ),
             MarkerLayer(
