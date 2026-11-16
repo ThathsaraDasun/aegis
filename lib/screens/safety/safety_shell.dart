@@ -11,6 +11,79 @@ import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
 import '../../services/safety/sos_gateway.dart';
 
+/// Floating SOS button in the Aegis blue palette. Tapping it calls the same
+/// manual SOS action as before.
+class _SosButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SosButton({required this.onPressed});
+
+  static const Color _azure = Color(0xFF007FFF);
+  static const Color _dodger = Color(0xFF1E90FF);
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Send SOS alert',
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.rectangle,
+        borderRadius: BorderRadius.circular(40),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_azure, _dodger],
+        ),
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: _azure.withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const StadiumBorder(),
+          splashColor: Colors.white24,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 20, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.crisis_alert_rounded,
+                    color: _azure,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'SOS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class SafetyScope extends InheritedNotifier<SafetyController> {
   const SafetyScope({
     super.key,
@@ -32,6 +105,11 @@ class SafetyShell extends StatefulWidget {
     this.controller,
     this.showFloatingSos = false,
   });
+
+  /// Number of open pages that hide the floating SOS button (e.g. Edit
+  /// Profile). Only the button is hidden; SOS and fall detection keep working.
+  static final ValueNotifier<int> sosButtonHiders = ValueNotifier<int>(0);
+
   @override
   State<SafetyShell> createState() => _SafetyShellState();
 }
@@ -94,19 +172,15 @@ class _SafetyShellState extends State<SafetyShell> with WidgetsBindingObserver {
                   MaterialPageRoute(builder: widget.homeBuilder),
             ),
             if (widget.showFloatingSos && controller.phase == SafetyPhase.idle)
-              Positioned(
-                right: 16,
-                bottom: 88 + MediaQuery.paddingOf(context).bottom,
-                child: FloatingActionButton.extended(
-                  heroTag: 'global-sos',
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onErrorContainer,
-                  onPressed: controller.manualSos,
-                  icon: const Icon(Icons.sos),
-                  label: const Text('Real SOS'),
-                ),
+              ValueListenableBuilder<int>(
+                valueListenable: SafetyShell.sosButtonHiders,
+                builder: (context, hiders, _) => hiders > 0
+                    ? const SizedBox.shrink()
+                    : Positioned(
+                        right: 16,
+                        bottom: 88 + MediaQuery.paddingOf(context).bottom,
+                        child: _SosButton(onPressed: controller.manualSos),
+                      ),
               ),
             if (controller.phase != SafetyPhase.idle)
               SafetyEventScreen(controller: controller),
@@ -379,7 +453,11 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
 class SafetyDashboard extends StatelessWidget {
   const SafetyDashboard({super.key});
 
-  Future<void> _confirmAutomaticSms(BuildContext context, SafetyController c, bool value) async {
+  Future<void> _confirmAutomaticSms(
+    BuildContext context,
+    SafetyController c,
+    bool value,
+  ) async {
     if (value) {
       final agreed = await showDialog<bool>(
         context: context,
@@ -507,7 +585,9 @@ class SafetyDashboard extends StatelessWidget {
             child: ExpansionTile(
               leading: const Icon(Icons.science_outlined),
               title: const Text('Practice & testing'),
-              subtitle: const Text('Try the countdown safely – no alerts are sent'),
+              subtitle: const Text(
+                'Try the countdown safely – no alerts are sent',
+              ),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
                 SwitchListTile(
@@ -557,7 +637,9 @@ class _ProtectionStatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: active
-            ? const LinearGradient(colors: [AegisColors.azure, AegisColors.dodgerBlue])
+            ? const LinearGradient(
+                colors: [AegisColors.azure, AegisColors.dodgerBlue],
+              )
             : null,
         color: active ? null : Colors.white,
         borderRadius: BorderRadius.circular(AegisRadius.xl),
@@ -568,7 +650,9 @@ class _ProtectionStatusCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: active ? Colors.white.withValues(alpha: 0.2) : AegisColors.surfaceContainerHigh,
+              color: active
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : AegisColors.surfaceContainerHigh,
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -594,12 +678,14 @@ class _ProtectionStatusCard extends StatelessWidget {
                 Text(
                   active
                       ? (sms
-                          ? 'Fall monitoring on · guardians get an SMS if you don\'t respond'
-                          : 'Fall monitoring on · you send the alert yourself')
+                            ? 'Fall monitoring on · guardians get an SMS if you don\'t respond'
+                            : 'Fall monitoring on · you send the alert yourself')
                       : 'Turn on fall monitoring before you walk alone',
                   style: TextStyle(
                     fontSize: 13,
-                    color: active ? Colors.white.withValues(alpha: 0.9) : AegisColors.textSecondary,
+                    color: active
+                        ? Colors.white.withValues(alpha: 0.9)
+                        : AegisColors.textSecondary,
                   ),
                 ),
               ],
@@ -625,9 +711,12 @@ class _SafetyGuideTipState extends State<_SafetyGuideTip> {
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance().then((p) {
-      if (mounted && p.getBool(_prefKey) != true) setState(() => _visible = true);
-    }).catchError((_) {});
+    SharedPreferences.getInstance()
+        .then((p) {
+          if (mounted && p.getBool(_prefKey) != true)
+            setState(() => _visible = true);
+        })
+        .catchError((_) {});
   }
 
   Future<void> _dismiss() async {
@@ -653,7 +742,9 @@ class _SafetyGuideTipState extends State<_SafetyGuideTip> {
           children: [
             const Icon(Icons.lightbulb_outline, color: AegisColors.primary),
             const SizedBox(width: 10),
-            const Expanded(child: Text('New to Aegis? See how protection works.')),
+            const Expanded(
+              child: Text('New to Aegis? See how protection works.'),
+            ),
             TextButton(
               onPressed: () {
                 _dismiss();
@@ -687,7 +778,10 @@ Future<void> showSafetyGuide(BuildContext context) {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          Text('How protection works', style: Theme.of(context).textTheme.headlineSmall),
+          Text(
+            'How protection works',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 16),
           const _GuideItem(
             icon: Icons.personal_injury_outlined,
@@ -740,7 +834,11 @@ class _GuideItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
-  const _GuideItem({required this.icon, required this.title, required this.body});
+  const _GuideItem({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -762,9 +860,21 @@ class _GuideItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(body, style: const TextStyle(color: AegisColors.textSecondary, height: 1.35)),
+                Text(
+                  body,
+                  style: const TextStyle(
+                    color: AegisColors.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
               ],
             ),
           ),
