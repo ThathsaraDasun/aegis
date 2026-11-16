@@ -7,6 +7,7 @@ import '../models/contact_model.dart';
 import '../models/user_model.dart';
 import 'firestore_service.dart';
 import 'contacts_service.dart';
+import 'automatic_sms_service.dart';
 
 class GuardianWhatsAppLink {
   final String name;
@@ -32,12 +33,18 @@ class AlertTriggerResult {
   final bool smsOpened;
   final bool dialerOpened;
   final List<GuardianWhatsAppLink> whatsAppLinks;
+  final String? automaticSmsMessage;
+  final bool recorded;
+  final Uri? manualSmsUri;
   const AlertTriggerResult({
     required this.alertId,
     required this.contactCount,
     required this.smsOpened,
     required this.dialerOpened,
     this.whatsAppLinks = const [],
+    this.automaticSmsMessage,
+    this.recorded = true,
+    this.manualSmsUri,
   });
 }
 
@@ -139,9 +146,28 @@ class AlertService {
     bool smsOpened = false;
     bool dialerOpened = false;
     final message = buildMessage(
-      user: user, type: type, lat: lat, lng: lng, tripId: tripId,
+      user: user,
+      type: type,
+      lat: lat,
+      lng: lng,
+      tripId: tripId,
     );
-    if (phones.isNotEmpty) {
+    String? automaticSmsMessage;
+    if (phones.isNotEmpty && AutomaticSmsService.enabled) {
+      try {
+        final status = await AutomaticSmsService.send(
+          id: alertId,
+          uid: userId,
+          phones: phones,
+          message: message,
+        );
+        automaticSmsMessage = '${status['message']}';
+      } catch (_) {
+        automaticSmsMessage =
+            'Automatic SMS result unknown. Check your Messages app before sending again; delivery is not confirmed.';
+      }
+    }
+    if (phones.isNotEmpty && automaticSmsMessage == null) {
       try {
         smsOpened = await _launch(
           Uri.parse(
@@ -157,19 +183,27 @@ class AlertService {
     }
     await _showLocalNotification(
       title: 'Safety alert recorded',
-      body: phones.isEmpty
-          ? 'No usable guardian contacts. Nobody was contacted.'
-          : smsOpened
-          ? 'SMS composer opened. Tap Send in your messaging app.'
-          : dialerOpened
-          ? 'Phone dialer opened. Start the call to reach your guardian.'
-          : 'Contact options could not open. Reach your guardian directly.',
+      body:
+          automaticSmsMessage ??
+          (phones.isEmpty
+              ? 'No usable guardian contacts. Nobody was contacted.'
+              : smsOpened
+              ? 'SMS composer opened. Tap Send in your messaging app.'
+              : dialerOpened
+              ? 'Phone dialer opened. Start the call to reach your guardian.'
+              : 'Contact options could not open. Reach your guardian directly.'),
     );
     return AlertTriggerResult(
       alertId: alertId,
       contactCount: phones.length,
       smsOpened: smsOpened,
       dialerOpened: dialerOpened,
+      automaticSmsMessage: automaticSmsMessage,
+      manualSmsUri: phones.isEmpty
+          ? null
+          : Uri.parse(
+              'sms:${phones.join(',')}?body=${Uri.encodeComponent(message)}',
+            ),
       whatsAppLinks: List.unmodifiable([
         for (final phone in phones)
           if (whatsAppUri(phone, message) case final Uri uri)

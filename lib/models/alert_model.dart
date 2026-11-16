@@ -59,12 +59,13 @@ class AlertModel {
 
   static Map<String, double> _parseLocationMap(dynamic locData) {
     if (locData is Map) {
+      if (locData['lat'] is! num || locData['lng'] is! num) return {};
       return {
         'lat': (locData['lat'] as num?)?.toDouble() ?? 0.0,
         'lng': (locData['lng'] as num?)?.toDouble() ?? 0.0,
       };
     }
-    return {'lat': 0.0, 'lng': 0.0};
+    return {};
   }
 
   static DateTime _parseDate(dynamic value) {

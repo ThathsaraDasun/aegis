@@ -33,9 +33,10 @@ class _DestinationSearchSheetState extends State<DestinationSearchSheet> {
       if (!mounted) return;
       setState(() {
         _results = results;
-        if (results.isEmpty)
+        if (results.isEmpty) {
           _message =
               'No matches. Include the town or try selecting the place on the map.';
+        }
       });
     } catch (e) {
       if (!mounted) return;
