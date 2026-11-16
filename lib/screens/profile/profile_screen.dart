@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
+import '../../services/seed_service.dart';
 import '../../services/firestore_service.dart';
-import '../../services/auth_service.dart';
 import '../../widgets/profile_photo_avatar.dart';
 import 'edit_profile_screen.dart';
 
@@ -244,6 +245,12 @@ class ProfileScreen extends StatelessWidget {
                     label: 'Edit Profile & Medical Info',
                     onTap: openEdit,
                   ),
+                  if (kDebugMode)
+                    _ActionRow(
+                      icon: Icons.dataset_linked_outlined,
+                      label: 'Seed Demo Data (Debug)',
+                      onTap: () => _seedDemoData(context),
+                    ),
                   _ActionRow(
                     icon: Icons.logout_rounded,
                     label: 'Sign Out',
@@ -268,14 +275,43 @@ class ProfileScreen extends StatelessWidget {
     ),
   );
 
-  Future<void> _handleSignOut(BuildContext context) async {
+  Future<void> _seedDemoData(BuildContext context) async {
     try {
-      await FirebaseAuthService().signOut();
+      await SeedService.instance.seedDemoData();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Demo data successfully seeded to Firestore!',
+              style: GoogleFonts.outfit(),
+            ),
+            backgroundColor: _P.azure,
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authErrorMessage(e), style: GoogleFonts.outfit()),
+            content: Text(
+              'Failed to seed demo data: $e',
+              style: GoogleFonts.outfit(),
+            ),
+            backgroundColor: _P.danger,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleSignOut(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error signing out: $e', style: GoogleFonts.outfit()),
             backgroundColor: _P.danger,
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/contact_model.dart';
+import 'phone_validation.dart';
 import '../models/medical_profile_model.dart';
 
 /// Trusted contacts (`users/{uid}/contacts`) and the user's medical profile
@@ -10,7 +11,7 @@ import '../models/medical_profile_model.dart';
 /// [getMedicalProfile]: primary guardians come first.
 class ContactsService {
   ContactsService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -29,14 +30,19 @@ class ContactsService {
 
   /// Live list of contacts: primary guardians first, then A–Z.
   Stream<List<ContactModel>> streamContacts(String uid) {
-    return _contacts(uid).snapshots().map((snapshot) => sortContacts(
-        snapshot.docs.map((doc) => ContactModel.fromMap(doc.id, doc.data()))));
+    return _contacts(uid).snapshots().map(
+      (snapshot) => sortContacts(
+        snapshot.docs.map((doc) => ContactModel.fromMap(doc.id, doc.data())),
+      ),
+    );
   }
 
   /// One-shot list for the SOS pipeline (primary first).
   Future<List<ContactModel>> getEmergencyContacts(String uid) async {
     final snap = await _contacts(uid).get();
-    return sortContacts(snap.docs.map((d) => ContactModel.fromMap(d.id, d.data())));
+    return sortContacts(
+      snap.docs.map((d) => ContactModel.fromMap(d.id, d.data())),
+    );
   }
 
   static List<ContactModel> sortContacts(Iterable<ContactModel> contacts) {
@@ -78,10 +84,9 @@ class ContactsService {
 
   /// Re-creates a deleted contact with the same id (used by "Undo").
   Future<void> restoreContact(String uid, ContactModel contact) {
-    return _contacts(uid).doc(contact.id).set({
-      ...contact.toMap(),
-      'contactId': contact.id,
-    });
+    return _contacts(
+      uid,
+    ).doc(contact.id).set({...contact.toMap(), 'contactId': contact.id});
   }
 
   // ---------------------------------------------------------------------------
@@ -89,7 +94,9 @@ class ContactsService {
   // ---------------------------------------------------------------------------
 
   Stream<MedicalProfile> streamMedicalProfile(String uid) {
-    return _userDoc(uid).snapshots().map((doc) => MedicalProfile.fromMap(doc.data()));
+    return _userDoc(
+      uid,
+    ).snapshots().map((doc) => MedicalProfile.fromMap(doc.data()));
   }
 
   Future<MedicalProfile> getMedicalProfile(String uid) async {
@@ -125,19 +132,11 @@ class ContactsService {
   // ---------------------------------------------------------------------------
 
   /// Strips spaces, dashes and brackets; converts a local Sri Lankan number
-  /// (07XXXXXXXX) to +94 format. Other numbers are left as typed.
-  static String normalizePhone(String raw) {
-    var p = raw.trim().replaceAll(RegExp(r'[\s\-()]'), '');
-    if (p.startsWith('00')) p = '+${p.substring(2)}';
-    if (RegExp(r'^0\d{9}$').hasMatch(p)) p = '+94${p.substring(1)}';
-    return p;
-  }
+  /// (07XXXXXXXX) to +94 format. See [PhoneValidation.normalize].
+  static String normalizePhone(String raw) => PhoneValidation.normalize(raw);
 
-  /// Returns an error message, or null when the number looks valid.
-  static String? validatePhone(String? raw) {
-    final p = normalizePhone(raw ?? '');
-    if (p.isEmpty) return 'Phone number is required';
-    if (!RegExp(r'^\+?\d{7,15}$').hasMatch(p)) return 'Enter a valid phone number';
-    return null;
-  }
+  /// Returns an error message, or null when the number is valid. Guardians
+  /// receive SMS alerts, so Sri Lankan numbers must be mobiles (07…).
+  static String? validatePhone(String? raw) =>
+      PhoneValidation.validate(raw, required: true, mobileOnly: true);
 }

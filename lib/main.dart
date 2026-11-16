@@ -7,7 +7,6 @@ import 'screens/activity/activity_feed_screen.dart';
 import 'screens/activity/trip_history_screen.dart';
 import 'screens/contacts/contacts_list_screen.dart';
 import 'screens/profile/profile_screen.dart';
-import 'screens/route/compass_screen.dart';
 import 'screens/route/route_comparison_screen.dart';
 import 'services/auth_service.dart';
 import 'services/alert_service.dart';
@@ -85,12 +84,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             key: const Key('appbar-real-sos'),
             onPressed: () => SafetyScope.of(context).manualSos(),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF007FFF),
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.fromLTRB(8, 0, 14, 0),
               minimumSize: const Size(0, 36),
               shape: const StadiumBorder(
-                side: BorderSide(color: Color(0xFF66CCFF), width: 1.5),
+                side: BorderSide(color: Colors.white, width: 1.5),
               ),
               elevation: 3,
               shadowColor: Colors.black26,
@@ -99,13 +98,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               width: 24,
               height: 24,
               decoration: const BoxDecoration(
-                color: Color(0xFF007FFF),
+                color: Colors.white,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.crisis_alert_rounded,
                 size: 15,
-                color: Colors.white,
+                color: Color(0xFFD32F2F),
               ),
             ),
             label: const Text(
@@ -114,17 +113,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
                 letterSpacing: 1.5,
-                color: Color(0xFF007FFF),
+                color: Colors.white,
               ),
             ),
           ),
-        ),
-        IconButton(
-          tooltip: 'Compass',
-          icon: const Icon(Icons.explore_outlined),
-          onPressed: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const CompassScreen())),
         ),
         IconButton(
           tooltip: 'Trip history',

@@ -14,14 +14,15 @@ import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
 import '../../services/safety/sos_gateway.dart';
 
-/// Floating SOS button in the Aegis blue palette. Tapping it calls the same
-/// manual SOS action as before.
+/// Emergency red used by every SOS button.
+const Color _sosRed = Color(0xFFD32F2F);
+const Color _sosRedLight = Color(0xFFE53935);
+
+/// Floating SOS button in emergency red. Tapping it calls the same manual SOS
+/// action as before.
 class _SosButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _SosButton({required this.onPressed});
-
-  static const Color _azure = Color(0xFF007FFF);
-  static const Color _dodger = Color(0xFF1E90FF);
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -33,12 +34,12 @@ class _SosButton extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_azure, _dodger],
+          colors: [_sosRed, _sosRedLight],
         ),
         border: Border.all(color: Colors.white, width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: _azure.withValues(alpha: 0.45),
+            color: _sosRed.withValues(alpha: 0.45),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -64,7 +65,7 @@ class _SosButton extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.crisis_alert_rounded,
-                    color: _azure,
+                    color: _sosRed,
                     size: 18,
                   ),
                 ),
@@ -580,11 +581,9 @@ class SafetyDashboard extends StatelessWidget {
                   title: 'Automatic guardian SMS',
                   subtitle: c.changingSms
                       ? 'Checking SMS setup…'
-                      : c.monitoring
-                      ? 'Turn off fall monitoring to change this'
                       : 'Texts your guardians if you don\'t respond',
                   value: c.automaticSms,
-                  onChanged: c.monitoring || busy
+                  onChanged: busy
                       ? null
                       : (value) => _confirmAutomaticSms(context, c, value),
                 ),
@@ -901,7 +900,7 @@ class _ToggleRow extends StatelessWidget {
   );
 }
 
-/// Large SOS action: same manual SOS call as before, in the blue palette.
+/// Large SOS action: same manual SOS call as before, in emergency red.
 class _SosActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _SosActionButton({required this.onPressed});
@@ -916,11 +915,11 @@ class _SosActionButton extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AegisColors.azure, AegisColors.dodgerBlue],
+          colors: [_sosRed, _sosRedLight],
         ),
         boxShadow: [
           BoxShadow(
-            color: AegisColors.azure.withValues(alpha: 0.35),
+            color: _sosRed.withValues(alpha: 0.35),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
@@ -950,7 +949,7 @@ class _SosActionButton extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.crisis_alert_rounded,
-                    color: AegisColors.azure,
+                    color: _sosRed,
                     size: 28,
                   ),
                 ),

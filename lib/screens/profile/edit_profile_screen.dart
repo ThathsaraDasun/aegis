@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/phone_validation.dart';
 import '../../widgets/profile_photo_avatar.dart';
 import '../safety/safety_shell.dart';
 
@@ -20,6 +22,7 @@ class _P {
 
 /// A screen allowing the user to update their personal identity and safety-critical
 /// medical profile used by first responders and trusted guardians during an SOS emergency.
+/// Automatically pauses global floating SOS button during active form editing.
 class EditProfileScreen extends StatefulWidget {
   final UserModel initialUser;
 
@@ -99,7 +102,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isSaving = true);
 
     final String updatedName = _nameController.text.trim();
-    final String updatedPhone = _phoneController.text.trim();
+    final String updatedPhone = _phoneController.text.trim().isEmpty
+        ? ''
+        : PhoneValidation.normalize(_phoneController.text);
     final String updatedBlood = _selectedBloodType == 'Not Set'
         ? ''
         : _selectedBloodType;
@@ -315,12 +320,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9+\s\-()]'),
+                                  ),
+                                ],
                                 style: _fieldText,
                                 cursorColor: _P.azure,
                                 decoration: _buildInputDecoration(
                                   label: 'Phone Number',
-                                  hintText: 'e.g. +1 555-019-2834',
+                                  hintText: 'e.g. 0771234567',
                                   prefixIcon: Icons.phone_outlined,
+                                ),
+                                validator: (v) => PhoneValidation.validate(
+                                  v,
+                                  required: false,
                                 ),
                               ),
                             ],
