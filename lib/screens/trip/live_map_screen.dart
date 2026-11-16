@@ -9,6 +9,7 @@ import '../../services/firestore_service.dart';
 import 'trip_summary_screen.dart';
 import 'trip_map.dart';
 
+/// Member 2 (Location & Maps Lead): Live map tracking with real-time position, markers, and polylines.
 class LiveMapScreen extends StatefulWidget {
   final String tripId;
   const LiveMapScreen({super.key, required this.tripId});
