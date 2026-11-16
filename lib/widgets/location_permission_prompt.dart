@@ -51,7 +51,7 @@ class LocationPermissionPrompt extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),

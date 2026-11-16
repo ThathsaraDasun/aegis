@@ -2,22 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AegisColors {
-  static const Color background = Color(0xFF1A3A5C);
-  static const Color primary = Color(0xFFFF5722); // Safety Orange
-  static const Color primaryContainer = Color(0xFFC83A0E);
-  static const Color secondary = Color(0xFF2196F3); // Trust Blue
-  static const Color tertiary = Color(0xFF4CAF50); // Green / Safe
-  static const Color tertiaryContainer = Color(0xFF1B5E20);
-  static const Color surfaceContainerLow = Color(0xFF1E1F25);
-  static const Color surfaceContainerHigh = Color(0xFF282A32);
-  static const Color surfaceContainerHighest = Color(0xFF323540);
-  static const Color textPrimary = Colors.white;
-  static const Color textSecondary = Color(0xFFA0A5B5);
+  // ---------------------------------------------------------------------------
+  // Brand palette (the only brand colours used in the app):
+  //   #007FFF  Azure        – primary actions, active states
+  //   #1E90FF  Dodger blue  – secondary accents, links, route A
+  //   #66CCFF  Sky blue     – soft highlights, location halo, route B
+  //   #F0F8FF  Alice blue   – app background
+  // ---------------------------------------------------------------------------
+  static const Color azure = Color(0xFF007FFF);
+  static const Color dodgerBlue = Color(0xFF1E90FF);
+  static const Color skyBlue = Color(0xFF66CCFF);
+  static const Color aliceBlue = Color(0xFFF0F8FF);
 
-  // Status colours (used by safety scores, hazard pins, validation).
-  static const Color warning = Color(0xFFFFB300); // Amber / Moderate
-  static const Color danger = Color(0xFFE53935); // Red / Risky
-  static const Color outline = Color(0xFF3D4150);
+  static const Color background = aliceBlue;
+  static const Color primary = azure;
+  static const Color primaryContainer = dodgerBlue;
+  static const Color secondary = dodgerBlue;
+  static const Color accent = skyBlue;
+
+  // Surfaces: white cards and light tints of the palette.
+  static const Color surfaceContainerLow = Colors.white;
+  static const Color surfaceContainerHigh = Color(0xFFE3F2FF);
+  static const Color surfaceContainerHighest = Color(0xFFCCE7FF);
+  static const Color outline = Color(0xFFB3DAFF);
+
+  // Text: deep navy so it stays readable on the light palette.
+  static const Color textPrimary = Color(0xFF0B2545);
+  static const Color textSecondary = Color(0xFF52708F);
+
+  // Status colours are kept for safety meaning only (safe / caution / SOS).
+  static const Color tertiary = Color(0xFF2E9E5B); // Safe
+  static const Color tertiaryContainer = Color(0xFF1E7A44);
+  static const Color warning = Color(0xFFE08A00); // Caution
+  static const Color danger = Color(0xFFD93636); // Risk / SOS
 
   /// Colour for a 0–100 safety score.
   static Color forScore(int score) {
@@ -46,12 +63,16 @@ class AegisRadius {
   static const double xxl = 24;
 }
 
-/// One ThemeData for the whole app (scope §9, Member 1 Day 2 / Member 5).
+/// One ThemeData for the whole app, built only from the blue brand palette.
 class AegisTheme {
   AegisTheme._();
 
-  static ThemeData dark() {
-    final base = ThemeData(useMaterial3: true, brightness: Brightness.dark);
+  /// Kept so older call sites keep compiling – the app now uses [light].
+  @Deprecated('Use AegisTheme.light()')
+  static ThemeData dark() => light();
+
+  static ThemeData light() {
+    final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
     final textTheme = GoogleFonts.outfitTextTheme(base.textTheme).apply(
       bodyColor: AegisColors.textPrimary,
       displayColor: AegisColors.textPrimary,
@@ -59,14 +80,21 @@ class AegisTheme {
 
     final scheme = ColorScheme.fromSeed(
       seedColor: AegisColors.primary,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
     ).copyWith(
       primary: AegisColors.primary,
       onPrimary: Colors.white,
       primaryContainer: AegisColors.primaryContainer,
+      onPrimaryContainer: Colors.white,
       secondary: AegisColors.secondary,
+      onSecondary: Colors.white,
+      secondaryContainer: AegisColors.accent,
+      onSecondaryContainer: AegisColors.textPrimary,
       tertiary: AegisColors.tertiary,
       error: AegisColors.danger,
+      onError: Colors.white,
+      errorContainer: AegisColors.danger,
+      onErrorContainer: Colors.white,
       surface: AegisColors.surfaceContainerLow,
       onSurface: AegisColors.textPrimary,
       onSurfaceVariant: AegisColors.textSecondary,
@@ -74,6 +102,7 @@ class AegisTheme {
       surfaceContainerHigh: AegisColors.surfaceContainerHigh,
       surfaceContainerHighest: AegisColors.surfaceContainerHighest,
       outline: AegisColors.outline,
+      outlineVariant: AegisColors.surfaceContainerHighest,
     );
 
     final roundedLg = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AegisRadius.lg));
@@ -87,8 +116,9 @@ class AegisTheme {
         centerTitle: true,
         elevation: 0,
         scrolledUnderElevation: 0,
-        backgroundColor: AegisColors.surfaceContainerLow,
+        backgroundColor: AegisColors.background,
         foregroundColor: AegisColors.textPrimary,
+        surfaceTintColor: Colors.transparent,
         titleTextStyle: GoogleFonts.outfit(
           fontSize: 20,
           fontWeight: FontWeight.bold,
@@ -96,14 +126,17 @@ class AegisTheme {
         ),
       ),
       cardTheme: CardThemeData(
-        color: AegisColors.surfaceContainerHigh,
+        color: Colors.white,
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AegisRadius.xl)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AegisRadius.xl),
+          side: const BorderSide(color: AegisColors.outline),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AegisColors.surfaceContainerHigh,
+        fillColor: Colors.white,
         labelStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
         hintStyle: GoogleFonts.outfit(color: AegisColors.textSecondary),
         prefixIconColor: AegisColors.textSecondary,
@@ -114,7 +147,7 @@ class AegisTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AegisRadius.lg),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AegisColors.outline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AegisRadius.lg),
@@ -134,6 +167,8 @@ class AegisTheme {
           backgroundColor: AegisColors.primary,
           foregroundColor: Colors.white,
           disabledBackgroundColor: AegisColors.surfaceContainerHighest,
+          disabledForegroundColor: AegisColors.textSecondary,
+          elevation: 0,
           minimumSize: const Size(64, 48),
           shape: roundedLg,
           textStyle: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
@@ -168,7 +203,7 @@ class AegisTheme {
         foregroundColor: Colors.white,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AegisColors.surfaceContainerHigh,
+        backgroundColor: Colors.white,
         selectedColor: AegisColors.primary,
         labelStyle: GoogleFonts.outfit(color: AegisColors.textPrimary, fontWeight: FontWeight.w600),
         secondaryLabelStyle: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600),
@@ -186,13 +221,13 @@ class AegisTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AegisColors.surfaceContainerHighest,
-        contentTextStyle: GoogleFonts.outfit(color: AegisColors.textPrimary),
-        actionTextColor: AegisColors.primary,
+        backgroundColor: AegisColors.textPrimary,
+        contentTextStyle: GoogleFonts.outfit(color: Colors.white),
+        actionTextColor: AegisColors.accent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AegisRadius.md)),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: AegisColors.surfaceContainerHigh,
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AegisRadius.xl)),
         titleTextStyle: GoogleFonts.outfit(
             fontSize: 20, fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
@@ -207,6 +242,18 @@ class AegisTheme {
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AegisColors.primary),
       listTileTheme: const ListTileThemeData(iconColor: AegisColors.textSecondary),
+      iconTheme: const IconThemeData(color: AegisColors.textPrimary),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        indicatorColor: AegisColors.accent.withValues(alpha: 0.35),
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: AegisColors.primary,
+        unselectedItemColor: AegisColors.textSecondary,
+        elevation: 8,
+      ),
     );
   }
 }
