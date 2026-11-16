@@ -20,6 +20,7 @@ class _P {
 
 /// A screen allowing the user to update their personal identity and safety-critical
 /// medical profile used by first responders and trusted guardians during an SOS emergency.
+/// Automatically pauses global floating SOS button during active form editing.
 class EditProfileScreen extends StatefulWidget {
   final UserModel initialUser;
 
