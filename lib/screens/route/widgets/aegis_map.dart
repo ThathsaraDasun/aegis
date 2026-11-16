@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../theme/aegis_theme.dart';
 
-/// Light OpenStreetMap base map (CARTO Voyager tiles – no API key) shared by the
+/// Standard OpenStreetMap base map, shared by the
 /// Safe Route screens. Pass overlay layers as [children].
 class AegisMap extends StatelessWidget {
   final MapController? controller;
@@ -49,16 +50,26 @@ class AegisMap extends StatelessWidget {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-          subdomains: const ['a', 'b', 'c', 'd'],
-          retinaMode: RetinaMode.isHighDensity(context),
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.aegis.safewalk',
-          maxZoom: 19,
+          maxNativeZoom: 19,
+          panBuffer: 0,
+          keepBuffer: 0,
         ),
         ...children,
-        const SimpleAttributionWidget(
-          source: Text('© OpenStreetMap contributors © CARTO'),
-          backgroundColor: Color(0xCCFFFFFF),
+        Align(
+          alignment: Alignment.bottomLeft,
+          child: Material(
+            color: const Color(0xEEFFFFFF),
+            child: InkWell(
+              onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright')),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                child: Text('© OpenStreetMap contributors',
+                    style: TextStyle(fontSize: 11, color: Colors.black87)),
+              ),
+            ),
+          ),
         ),
       ],
     );
