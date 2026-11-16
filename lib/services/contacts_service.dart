@@ -134,30 +134,43 @@ class ContactsService {
   }
 
   /// Returns an error message, or null when the number looks valid.
-  /// Enforces standard style: starting with 0 and total 10 digits (e.g. 0771234567),
-  /// or international format starting with + (e.g. +94771234567).
+  /// Enforces standard style: starting with 0 (10 digits total) and must start
+  /// with valid Sri Lankan mobile prefixes (070, 071, 072, 074, 075, 076, 077, 078),
+  /// or international format starting with +94 (e.g. +94771234567).
   static String? validatePhone(String? raw, {bool optional = false}) {
     final clean = (raw ?? '').trim().replaceAll(RegExp(r'[\s\-()]'), '');
     if (clean.isEmpty) {
       return optional ? null : 'Phone number is required';
     }
 
-    // Standard 10-digit number starting with 0 (e.g. 0771234567 or 0112345678)
+    // Standard 10-digit Sri Lankan mobile number starting with 0
     if (clean.startsWith('0')) {
-      if (!RegExp(r'^0\d{9}$').hasMatch(clean)) {
-        return 'Phone number starting with 0 must be 10 digits (e.g. 0771234567)';
+      if (clean.length != 10) {
+        return 'Phone number must be exactly 10 digits (e.g. 0771234567)';
+      }
+      final validPrefixes = RegExp(r'^07[01245678]\d{7}$');
+      if (!validPrefixes.hasMatch(clean)) {
+        return 'Number must start with 070, 071, 072, 074, 075, 076, 077, or 078';
       }
       return null;
     }
 
     // International format starting with + (e.g. +94771234567)
     if (clean.startsWith('+')) {
+      if (clean.startsWith('+94')) {
+        final localEquivalent = '0${clean.substring(3)}';
+        if (localEquivalent.length != 10 ||
+            !RegExp(r'^07[01245678]\d{7}$').hasMatch(localEquivalent)) {
+          return 'International +94 number must start with a valid mobile prefix (e.g. +94771234567)';
+        }
+        return null;
+      }
       if (!RegExp(r'^\+\d{9,14}$').hasMatch(clean)) {
         return 'Enter a valid international phone number (e.g. +94771234567)';
       }
       return null;
     }
 
-    return 'Phone number must start with 0 (10 digits) or +94';
+    return 'Phone number must start with 0 (e.g. 0771234567) or +94';
   }
 }
