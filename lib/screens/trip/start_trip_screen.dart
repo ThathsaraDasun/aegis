@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/trip_model.dart';
-import '../../services/automatic_sms_service.dart';
+import '../../services/alert_service.dart';
 import '../../services/destination_search_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
@@ -172,12 +172,13 @@ class _StartTripScreenState extends State<StartTripScreen> {
           )
           .timeout(const Duration(seconds: 15));
 
-      final guardians = await AutomaticSmsService.instance.notifyTripStart(
-        tripId: id,
+      final guardians = await AlertService.instance.prepareTripStartShare(
         userId: uid,
-        destinationLabel: _destinationName,
-        position: p,
-        destination: destination,
+        contactIds: null,
+        lat: p.latitude,
+        lng: p.longitude,
+        tripId: id,
+        liveLocationUrl: 'https://aegis.safe/trip/$id',
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -187,8 +188,8 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 LiveMapScreen(
                   tripId: id,
                   plannedRoutePoints: _plannedRoutePoints,
-                  guardianLink: guardians.link,
-                  guardianShare: guardians.share,
+                  guardianLink: guardians.automaticSmsMessage,
+                  guardianShare: guardians,
                 ),
           ),
         );
