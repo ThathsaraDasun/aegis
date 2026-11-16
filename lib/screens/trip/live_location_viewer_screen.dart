@@ -5,6 +5,7 @@ import '../../services/firestore_service.dart';
 import 'trip_map.dart';
 
 /// Reads only trips permitted by the deployed Firestore rules.
+/// Member 2 (Location & Maps Lead): Read-only live location viewer for trusted contact watcher mode.
 class LiveLocationViewerScreen extends StatefulWidget {
   final String tripId;
   const LiveLocationViewerScreen({super.key, required this.tripId});
