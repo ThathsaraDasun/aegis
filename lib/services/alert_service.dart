@@ -128,6 +128,30 @@ class AlertService {
     return 'I started a Safe Walk. Follow my live location: $link';
   }
 
+  /// Trip-end text for guardians. When the walker confirmed arrival it says
+  /// so; when the trip ended without confirmation (timeout) it asks them to
+  /// check on the walker and includes the last known location if available.
+  static String buildTripEndMessage({
+    required bool arrivedSafely,
+    double? lat,
+    double? lng,
+  }) {
+    if (arrivedSafely) {
+      return 'I have arrived safely. My Safe Walk has ended and live location sharing has stopped.';
+    }
+    final valid =
+        lat != null &&
+        lng != null &&
+        lat.isFinite &&
+        lng.isFinite &&
+        lat.abs() <= 90 &&
+        lng.abs() <= 180;
+    final where = valid
+        ? ' Last known location: https://maps.google.com/?q=$lat,$lng'
+        : '';
+    return 'My Safe Walk ended without me confirming that I arrived safely. Please check on me.$where';
+  }
+
   /// Prepares the trip-start message for the selected guardians
   /// ([contactIds] are trusted-contact IDs under `users/{uid}/contacts`).
   ///
@@ -140,32 +164,67 @@ class AlertService {
     required double lng,
     required String tripId,
     String? liveLocationUrl,
-  }) async {
-    _checkUser(userId);
-    final selected = contactIds.toSet();
-    final contacts = (await _databaseStep(
-      'reading your guardian contacts',
-      () => _firestoreService
-          .getContacts(userId)
-          .timeout(const Duration(seconds: 8)),
-    )).where(
-      (c) =>
-          selected.contains(c.id) &&
-          !c.id.startsWith('demo_') &&
-          _phone(c).isNotEmpty,
-    ).toList();
-    final phones = contacts.map(_phone).toSet().toList();
-    final message = buildTripStartMessage(
+  }) => _prepareGuardianShare(
+    userId: userId,
+    contactIds: contactIds,
+    smsId: 'trip-start-$tripId',
+    message: buildTripStartMessage(
       lat: lat,
       lng: lng,
       liveLocationUrl: liveLocationUrl,
-    );
+    ),
+  );
+
+  /// Prepares the trip-end message for all saved guardians. Like the start
+  /// message, it is sent automatically only when automatic SMS is enabled.
+  Future<TripStartShare> prepareTripEndShare({
+    required String userId,
+    required String tripId,
+    required bool arrivedSafely,
+    double? lat,
+    double? lng,
+  }) => _prepareGuardianShare(
+    userId: userId,
+    contactIds: null,
+    smsId: 'trip-end-$tripId',
+    message: buildTripEndMessage(
+      arrivedSafely: arrivedSafely,
+      lat: lat,
+      lng: lng,
+    ),
+  );
+
+  /// Shared guardian-message logic for trip start and end. [contactIds] null
+  /// means all saved guardians.
+  Future<TripStartShare> _prepareGuardianShare({
+    required String userId,
+    required List<String>? contactIds,
+    required String smsId,
+    required String message,
+  }) async {
+    _checkUser(userId);
+    final selected = contactIds?.toSet();
+    final contacts =
+        (await _databaseStep(
+              'reading your guardian contacts',
+              () => _firestoreService
+                  .getContacts(userId)
+                  .timeout(const Duration(seconds: 8)),
+            ))
+            .where(
+              (c) =>
+                  (selected == null || selected.contains(c.id)) &&
+                  !c.id.startsWith('demo_') &&
+                  _phone(c).isNotEmpty,
+            )
+            .toList();
+    final phones = contacts.map(_phone).toSet().toList();
     String? automaticSmsMessage;
     if (phones.isNotEmpty && _automaticSmsEnabled()) {
       _checkUser(userId);
       try {
         final status = await _sendAutomaticSms(
-          id: 'trip-start-$tripId',
+          id: smsId,
           uid: userId,
           phones: phones,
           message: message,

@@ -345,13 +345,25 @@ class _LiveMapScreenState extends State<LiveMapScreen>
     await _positions?.cancel();
     _positions = null;
     try {
-      await _pendingWrite;
-      await _store
-          .endTrip(
-            widget.tripId,
-            status: arrivedSafely ? TripStatus.completed : TripStatus.alerted,
-          )
-          .timeout(const Duration(seconds: 15));
+      // A slow location write must not hold up ending the trip.
+      try {
+        await _pendingWrite?.timeout(const Duration(seconds: 3));
+      } catch (_) {}
+      // Firestore applies the end on the phone immediately and uploads it
+      // when the server is reachable. On a slow or missing connection the
+      // server confirmation can take a long time, so a timeout here means
+      // "queued", not "failed"; only a real error (e.g. permission) fails.
+      var syncPending = false;
+      try {
+        await _store
+            .endTrip(
+              widget.tripId,
+              status: arrivedSafely ? TripStatus.completed : TripStatus.alerted,
+            )
+            .timeout(const Duration(seconds: 6));
+      } on TimeoutException {
+        syncPending = true;
+      }
       _ended = true;
       _timer?.cancel();
       _stopGuardianSharing();
@@ -365,6 +377,9 @@ class _LiveMapScreenState extends State<LiveMapScreen>
                   ? null
                   : DateTime.now().difference(_trip!.startedAt),
               destinationName: _trip?.destinationName,
+              syncPending: syncPending,
+              lastLat: _current?.latitude,
+              lastLng: _current?.longitude,
             ),
           ),
         );
