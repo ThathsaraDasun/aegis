@@ -48,6 +48,7 @@ class AegisNavBar extends StatelessWidget {
   static const Color _dodger = Color(0xFF1E90FF);
   static const Color _sky = Color(0xFF66CCFF);
   static const Color _muted = Color(0xFF9AA6B8);
+  static const Color _mist = Color(0xFFF0F8FF);
 
   static const double _barHeight = 68;
   static const double _overhang = 34; // how far the centre button rises
@@ -58,7 +59,8 @@ class AegisNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final centerSelected = currentIndex == centerItem.index;
 
-    return Padding(
+    return Container(
+      color: _mist,
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 12),
       child: SizedBox(
         height: _barHeight + _overhang,

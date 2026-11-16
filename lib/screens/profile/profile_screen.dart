@@ -3,39 +3,41 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
-import '../../theme/aegis_theme.dart';
+import '../../widgets/profile_photo_avatar.dart';
 import 'edit_profile_screen.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
 const bool _useDummyData = false;
 
+/// Colour palette shared with the Login / Register screens.
+class _P {
+  static const Color azure = Color(0xFF007FFF);
+  static const Color sky = Color(0xFF66CCFF);
+  static const Color mist = Color(0xFFF0F8FF);
+  static const Color ink = Color(0xFF0B2545);
+  static const Color muted = Color(0xFF6B7A90);
+  static const Color line = Color(0xFFD6ECFF);
+  static const Color danger = Color(0xFFD93025);
+}
+
 /// A screen that displays the user's profile and safety-critical medical information.
-/// 
+///
 /// Streams user data live from the Firestore 'users' collection via [FirestoreService].
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  /// Generates a consistent background color for the avatar based on the name.
-  Color _getAvatarColor(String name) {
-    final int hash = name.hashCode;
-    final List<Color> colors = [
-      AegisColors.primary,
-      AegisColors.secondary,
-    ];
-    return colors[hash.abs() % colors.length];
-  }
 
   @override
   Widget build(BuildContext context) {
     final User? firebaseUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      backgroundColor: AegisColors.background,
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
+      backgroundColor: _P.mist,
       body: _useDummyData
-          ? _buildProfileContent(context, _dummyUser, firebaseUser?.email ?? 'demo@aegis.safe')
+          ? _buildProfileContent(
+              context,
+              _dummyUser,
+              firebaseUser?.email ?? 'demo@aegis.safe',
+            )
           : _buildFirestoreStream(context, firebaseUser),
     );
   }
@@ -60,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(color: AegisColors.primary),
+            child: CircularProgressIndicator(color: _P.azure),
           );
         }
 
@@ -82,237 +84,188 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileContent(BuildContext context, UserModel user, String email) {
+  Widget _buildProfileContent(
+    BuildContext context,
+    UserModel user,
+    String email,
+  ) {
     final String initials = user.name.isNotEmpty
-        ? user.name.trim().split(RegExp(r'\s+')).map((e) => e[0]).take(2).join().toUpperCase()
+        ? user.name
+              .trim()
+              .split(RegExp(r'\s+'))
+              .map((e) => e[0])
+              .take(2)
+              .join()
+              .toUpperCase()
         : '?';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AegisColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: _getAvatarColor(user.name),
-                  child: Text(
-                    initials,
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 26,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name.isNotEmpty ? user.name : 'Aegis User',
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AegisColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AegisColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        user.phone.isNotEmpty ? user.phone : 'No phone added',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AegisColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Medical Info Section Header
-          Text(
-            'EMERGENCY MEDICAL PROFILE',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              color: AegisColors.primary,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Medical Info Card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AegisColors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AegisColors.primary.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildMedicalDetailTile(
-                      label: 'Blood Type',
-                      value: user.bloodType.isNotEmpty ? user.bloodType : 'Not Set',
-                      icon: Icons.bloodtype_outlined,
-                      valueColor: AegisColors.tertiary,
-                    ),
-                    _buildMedicalDetailTile(
-                      label: 'Allergies',
-                      value: user.allergies.isNotEmpty ? user.allergies : 'None Reported',
-                      icon: Icons.medical_services_outlined,
-                      valueColor: AegisColors.secondary,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(color: AegisColors.surfaceContainerHighest, height: 1),
-                const SizedBox(height: 16),
-                Text(
-                  'Emergency Note for First Responders',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    color: AegisColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  user.emergencyNote.isNotEmpty
-                      ? user.emergencyNote
-                      : 'No emergency notes specified.',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: AegisColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Edit Profile Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => EditProfileScreen(initialUser: user),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.edit_outlined, color: AegisColors.primary),
-              label: Text(
-                'Edit Profile & Medical Info',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AegisColors.primary,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AegisColors.primary, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Sign Out Button
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton.icon(
-              onPressed: () => _handleSignOut(context),
-              icon: const Icon(Icons.logout, color: Colors.white),
-              label: Text(
-                'Sign Out',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AegisColors.primaryContainer,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    void openEdit() => Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => EditProfileScreen(initialUser: user)),
     );
-  }
 
-  Widget _buildMedicalDetailTile({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color valueColor,
-  }) {
-    return Row(
+    return Stack(
       children: [
-        Icon(icon, color: valueColor, size: 24),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: AegisColors.textSecondary,
+        // Soft blue glow at the top, as in the reference design.
+        Positioned(
+          top: -120,
+          right: -80,
+          child: _glow(280, _P.sky.withValues(alpha: 0.28)),
+        ),
+        Positioned(
+          top: 60,
+          left: -110,
+          child: _glow(220, _P.azure.withValues(alpha: 0.10)),
+        ),
+        SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Profile',
+                    style: GoogleFonts.outfit(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: _P.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // ------------------------------------------------ header
+                  _Card(
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 22),
+                    child: Column(
+                      children: [
+                        ProfilePhotoAvatar(
+                          uid:
+                              FirebaseAuth.instance.currentUser?.uid ??
+                              user.userId,
+                          initials: initials,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          user.name.isNotEmpty ? user.name : 'Aegis User',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            color: _P.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          email,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            color: _P.muted,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            _MetaChip(
+                              icon: Icons.phone_outlined,
+                              text: user.phone.isNotEmpty
+                                  ? user.phone
+                                  : 'No phone added',
+                            ),
+                            _MetaChip(
+                              icon: Icons.bloodtype_outlined,
+                              text: user.bloodType.isNotEmpty
+                                  ? user.bloodType
+                                  : 'Blood type not set',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: openEdit,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Edit Profile'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _P.azure,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 26,
+                              vertical: 14,
+                            ),
+                            shape: const StadiumBorder(),
+                            textStyle: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ------------------------------------- medical profile
+                  const _SectionLabel('Emergency medical profile'),
+                  _InfoRow(
+                    icon: Icons.bloodtype_outlined,
+                    label: 'Blood Type',
+                    value: user.bloodType.isNotEmpty
+                        ? user.bloodType
+                        : 'Not Set',
+                  ),
+                  _InfoRow(
+                    icon: Icons.medical_services_outlined,
+                    label: 'Allergies',
+                    value: user.allergies.isNotEmpty
+                        ? user.allergies
+                        : 'None Reported',
+                  ),
+                  _InfoRow(
+                    icon: Icons.sticky_note_2_outlined,
+                    label: 'Emergency Note for First Responders',
+                    value: user.emergencyNote.isNotEmpty
+                        ? user.emergencyNote
+                        : 'No emergency notes specified.',
+                    stacked: true,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ------------------------------------------- account
+                  const _SectionLabel('Account'),
+                  _ActionRow(
+                    icon: Icons.manage_accounts_outlined,
+                    label: 'Edit Profile & Medical Info',
+                    onTap: openEdit,
+                  ),
+                  _ActionRow(
+                    icon: Icons.logout_rounded,
+                    label: 'Sign Out',
+                    color: _P.danger,
+                    showChevron: false,
+                    onTap: () => _handleSignOut(context),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: valueColor,
-              ),
-            ),
-          ],
+          ),
         ),
       ],
     );
   }
+
+  static Widget _glow(double size, Color color) => IgnorePointer(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    ),
+  );
 
   Future<void> _handleSignOut(BuildContext context) async {
     try {
@@ -321,8 +274,8 @@ class ProfileScreen extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error signing out: $e', style: GoogleFonts.inter()),
-            backgroundColor: AegisColors.primaryContainer,
+            content: Text('Error signing out: $e', style: GoogleFonts.outfit()),
+            backgroundColor: _P.danger,
           ),
         );
       }
@@ -337,8 +290,235 @@ final UserModel _dummyUser = UserModel(
   phone: '+1 (555) 019-2834',
   bloodType: 'O+',
   allergies: 'Penicillin, Peanuts',
-  emergencyNote: 'Asthma patient. Keeps inhaler in primary bag pocket. Contact emergency response immediately on SOS.',
+  emergencyNote:
+      'Asthma patient. Keeps inhaler in primary bag pocket. Contact emergency response immediately on SOS.',
 );
+
+/// White rounded card with a soft blue shadow.
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  const _Card({required this.child, required this.padding});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: padding,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: _P.azure.withValues(alpha: 0.08),
+          blurRadius: 24,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _MetaChip({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: _P.mist,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: _P.line),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: _P.azure),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            text,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(fontSize: 12.5, color: _P.muted),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 10),
+    child: Text(
+      text.toUpperCase(),
+      style: GoogleFonts.outfit(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+        color: _P.azure,
+      ),
+    ),
+  );
+}
+
+/// Light-blue rounded icon tile used at the start of each row.
+class _IconTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _IconTile(this.icon, {this.color = _P.azure});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 38,
+    height: 38,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Icon(icon, color: color, size: 20),
+  );
+}
+
+/// Read-only information row (label + value).
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool stacked;
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.stacked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = GoogleFonts.outfit(
+      fontSize: stacked ? 13 : 15,
+      fontWeight: stacked ? FontWeight.w500 : FontWeight.w600,
+      color: stacked ? _P.muted : _P.ink,
+    );
+    final valueStyle = GoogleFonts.outfit(
+      fontSize: stacked ? 15 : 14.5,
+      fontWeight: stacked ? FontWeight.w500 : FontWeight.w700,
+      color: stacked ? _P.ink : _P.azure,
+      height: 1.35,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: _Card(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: stacked
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
+          children: [
+            _IconTile(icon),
+            const SizedBox(width: 14),
+            Expanded(
+              child: stacked
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: labelStyle),
+                        const SizedBox(height: 4),
+                        Text(value, style: valueStyle),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Text(label, style: labelStyle),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            value,
+                            textAlign: TextAlign.end,
+                            style: valueStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tappable row with a trailing chevron, as in the reference settings list.
+class _ActionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color color;
+  final bool showChevron;
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = _P.azure,
+    this.showChevron = true,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _P.azure.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                _IconTile(icon, color: color),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: color == _P.azure ? _P.ink : color,
+                    ),
+                  ),
+                ),
+                if (showChevron)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: _P.muted,
+                    size: 24,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 class _ErrorOrEmptyState extends StatelessWidget {
   final String message;
@@ -361,31 +541,37 @@ class _ErrorOrEmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 64,
-              color: AegisColors.textSecondary.withValues(alpha: 0.5),
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: _P.azure.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 48, color: _P.azure),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                color: AegisColors.textSecondary,
-                fontSize: 14,
-              ),
+              style: GoogleFonts.outfit(color: _P.muted, fontSize: 15),
             ),
             if (onAction != null && actionLabel != null) ...[
               const SizedBox(height: 24),
-              ElevatedButton(
+              FilledButton(
                 onPressed: onAction,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AegisColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _P.azure,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  shape: const StadiumBorder(),
                 ),
                 child: Text(
                   actionLabel!,
-                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
                 ),
               ),
             ],
