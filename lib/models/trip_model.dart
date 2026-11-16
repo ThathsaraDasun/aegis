@@ -19,6 +19,7 @@ class TripModel {
   final DateTime? endedAt;
   /// Human-readable place name saved at trip start (optional, backwards-compatible).
   final String? destinationName;
+  final String shareToken;
 
   TripModel({
     required this.tripId,
@@ -30,6 +31,7 @@ class TripModel {
     required this.startedAt,
     this.endedAt,
     this.destinationName,
+    this.shareToken = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -43,6 +45,7 @@ class TripModel {
       'startedAt': Timestamp.fromDate(startedAt),
       'endedAt': endedAt != null ? Timestamp.fromDate(endedAt!) : null,
       if (destinationName != null) 'destinationName': destinationName,
+      'shareToken': shareToken,
     };
   }
 
@@ -61,6 +64,7 @@ class TripModel {
           ? _parseDate(map['endedAt'] ?? map['endTime'])
           : null,
       destinationName: map['destinationName'] as String?,
+      shareToken: (map['shareToken'] as String?) ?? '',
     );
   }
 
