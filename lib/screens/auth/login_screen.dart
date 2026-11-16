@@ -1,5 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
+
+/// Colour palette used by the sign-in / create-account screen.
+class _AuthPalette {
+  static const Color azure = Color(0xFF007FFF);
+  static const Color sky = Color(0xFF66CCFF);
+  static const Color mist = Color(0xFFF0F8FF);
+  static const Color dodger = Color(0xFF1E90FF);
+  static const Color ink = Color(0xFF0B2545);
+  static const Color muted = Color(0xFF6B7A90);
+  static const Color line = Color(0xFFD6ECFF);
+  static const Color error = Color(0xFFD93025);
+}
 
 class LoginScreen extends StatefulWidget {
   final AuthService service;
@@ -47,150 +60,408 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _toggleMode() => setState(() {
+    _register = !_register;
+    _error = null;
+    _password.clear();
+    _confirm.clear();
+    _form.currentState?.reset();
+  });
+
+  // ---------------------------------------------------------------- styling
+
+  InputDecoration _fieldDecoration({
+    required String label,
+    String? hint,
+    required IconData icon,
+    Widget? suffix,
+  }) {
+    OutlineInputBorder border(Color color, [double width = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: _AuthPalette.muted, fontSize: 14),
+      floatingLabelStyle: const TextStyle(
+        color: _AuthPalette.azure,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      hintText: hint,
+      hintStyle: TextStyle(
+        color: _AuthPalette.muted.withValues(alpha: 0.7),
+        fontSize: 14,
+      ),
+      prefixIcon: Icon(icon, color: _AuthPalette.azure, size: 20),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: _AuthPalette.mist,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      errorStyle: const TextStyle(color: _AuthPalette.error, fontSize: 12),
+      border: border(_AuthPalette.line),
+      enabledBorder: border(_AuthPalette.line),
+      disabledBorder: border(_AuthPalette.line),
+      focusedBorder: border(_AuthPalette.azure, 1.6),
+      errorBorder: border(_AuthPalette.error),
+      focusedErrorBorder: border(_AuthPalette.error, 1.6),
+    );
+  }
+
+  static const _inputText = TextStyle(color: _AuthPalette.ink, fontSize: 15);
+
+  // ------------------------------------------------------------------ build
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Form(
-              key: _form,
-              child: AutofillGroup(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(Icons.shield_outlined, size: 64),
-                    const SizedBox(height: 20),
-                    Text(
-                      'AEGIS SAFE WALK',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _register
-                          ? 'Create your account, then complete your profile.'
-                          : 'Sign in to your safety companion.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 28),
-                    TextFormField(
-                      controller: _email,
-                      enabled: !_busy,
-                      decoration: const InputDecoration(
-                        labelText: 'Email address',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      autocorrect: false,
-                      textInputAction: TextInputAction.next,
-                      validator: (v) =>
-                          RegExp(
-                            r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                          ).hasMatch((v ?? '').trim())
-                          ? null
-                          : 'Enter a valid email address.',
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      enabled: !_busy,
-                      obscureText: _obscure,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      autofillHints: [
-                        _register
-                            ? AutofillHints.newPassword
-                            : AutofillHints.password,
-                      ],
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        suffixIcon: IconButton(
-                          tooltip: _obscure ? 'Show password' : 'Hide password',
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                          icon: Icon(
-                            _obscure ? Icons.visibility : Icons.visibility_off,
-                          ),
-                        ),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Enter your password.';
-                        }
-                        if (_register && v.length < 6) {
-                          return 'Use at least 6 characters.';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) {
-                        if (!_register) _submit();
-                      },
-                    ),
-                    if (_register) ...[
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _confirm,
-                        enabled: !_busy,
-                        obscureText: _obscure,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        decoration: const InputDecoration(
-                          labelText: 'Confirm password',
-                        ),
-                        validator: (v) => v == _password.text
-                            ? null
-                            : 'Passwords do not match.',
-                        onFieldSubmitted: (_) => _submit(),
-                      ),
-                    ],
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(_register ? 'Create account' : 'Sign in'),
-                    ),
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() {
-                              _register = !_register;
-                              _error = null;
-                              _password.clear();
-                              _confirm.clear();
-                              _form.currentState?.reset();
-                            }),
-                      child: Text(
-                        _register
-                            ? 'Already have an account? Sign in'
-                            : 'Create an account',
-                      ),
-                    ),
-                  ],
+  Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
+    value: SystemUiOverlayStyle.light,
+    child: Scaffold(
+      backgroundColor: _AuthPalette.mist,
+      body: SingleChildScrollView(
+        child: Stack(
+          children: [
+            _Header(register: _register),
+            SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 250, 20, 24),
+                    child: _buildCard(),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     ),
+  );
+
+  Widget _buildCard() => Container(
+    padding: const EdgeInsets.fromLTRB(22, 26, 22, 14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(28),
+      boxShadow: [
+        BoxShadow(
+          color: _AuthPalette.azure.withValues(alpha: 0.12),
+          blurRadius: 32,
+          offset: const Offset(0, 14),
+        ),
+      ],
+    ),
+    child: Form(
+      key: _form,
+      child: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _email,
+              enabled: !_busy,
+              style: _inputText,
+              cursorColor: _AuthPalette.azure,
+              decoration: _fieldDecoration(
+                label: 'Email address',
+                hint: 'example@gmail.com',
+                icon: Icons.mail_outline_rounded,
+              ),
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              validator: (v) =>
+                  RegExp(
+                    r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                  ).hasMatch((v ?? '').trim())
+                  ? null
+                  : 'Enter a valid email address.',
+            ),
+            const SizedBox(height: 18),
+            TextFormField(
+              controller: _password,
+              enabled: !_busy,
+              obscureText: _obscure,
+              autocorrect: false,
+              enableSuggestions: false,
+              style: _inputText,
+              cursorColor: _AuthPalette.azure,
+              autofillHints: [
+                _register ? AutofillHints.newPassword : AutofillHints.password,
+              ],
+              decoration: _fieldDecoration(
+                label: 'Password',
+                hint: _register ? 'At least 6 characters' : null,
+                icon: Icons.lock_outline_rounded,
+                suffix: IconButton(
+                  tooltip: _obscure ? 'Show password' : 'Hide password',
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: _AuthPalette.muted,
+                    size: 20,
+                  ),
+                ),
+              ),
+              validator: (v) {
+                if (v == null || v.isEmpty) {
+                  return 'Enter your password.';
+                }
+                if (_register && v.length < 6) {
+                  return 'Use at least 6 characters.';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) {
+                if (!_register) _submit();
+              },
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              alignment: Alignment.topCenter,
+              child: _register
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 18),
+                        TextFormField(
+                          controller: _confirm,
+                          enabled: !_busy,
+                          obscureText: _obscure,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          style: _inputText,
+                          cursorColor: _AuthPalette.azure,
+                          decoration: _fieldDecoration(
+                            label: 'Confirm password',
+                            hint: 'Re-enter your password',
+                            icon: Icons.verified_user_outlined,
+                          ),
+                          validator: (v) => v == _password.text
+                              ? null
+                              : 'Passwords do not match.',
+                          onFieldSubmitted: (_) => _submit(),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Semantics(
+                liveRegion: true,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _AuthPalette.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _AuthPalette.error.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: _AuthPalette.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: _AuthPalette.error,
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 26),
+            SizedBox(
+              height: 54,
+              child: FilledButton(
+                onPressed: _busy ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _AuthPalette.azure,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _AuthPalette.azure.withValues(
+                    alpha: 0.55,
+                  ),
+                  disabledForegroundColor: Colors.white,
+                  elevation: 0,
+                  shape: const StadiumBorder(),
+                  textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                child: _busy
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(_register ? 'Create account' : 'Sign in'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  _register ? 'Already have an account?' : 'New to Aegis?',
+                  style: const TextStyle(
+                    color: _AuthPalette.muted,
+                    fontSize: 14,
+                  ),
+                ),
+                TextButton(
+                  onPressed: _busy ? null : _toggleMode,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _AuthPalette.azure,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: Text(_register ? 'Sign in' : 'Create an account'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Blue curved header with the Aegis logo and the page title.
+class _Header extends StatelessWidget {
+  final bool register;
+  const _Header({required this.register});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 340,
+    width: double.infinity,
+    clipBehavior: Clip.antiAlias,
+    decoration: const BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [_AuthPalette.azure, _AuthPalette.dodger],
+      ),
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+    ),
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        // Soft decorative circles, as in the reference design.
+        Positioned(
+          top: -70,
+          right: -50,
+          child: _circle(200, _AuthPalette.sky.withValues(alpha: 0.30)),
+        ),
+        Positioned(
+          top: 140,
+          left: -60,
+          child: _circle(140, Colors.white.withValues(alpha: 0.08)),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/splash/splash_logo.png',
+                  width: 76,
+                  height: 76,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox(
+                    width: 76,
+                    height: 76,
+                    child: Icon(
+                      Icons.shield_outlined,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'AEGIS SAFE WALK',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Column(
+                    key: ValueKey(register),
+                    children: [
+                      Text(
+                        register
+                            ? 'Create Account'
+                            : "Let's get you signed in!",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        register
+                            ? 'Create your account, then complete your profile.'
+                            : 'Welcome back! Sign in to your safety companion.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  static Widget _circle(double size, Color color) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
 }
