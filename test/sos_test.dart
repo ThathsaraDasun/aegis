@@ -61,7 +61,7 @@ class FakeStore implements FirestoreService {
   }
 
   @override
-  Future<void> markTripAlerted(String tripId) async {}
+  Future<void> markTripAlerted(String tripId, {String? shareToken}) async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

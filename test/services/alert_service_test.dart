@@ -1,9 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:aegis/models/alert_model.dart';
 import 'package:aegis/models/contact_model.dart';
+import 'package:aegis/models/trip_model.dart';
 import 'package:aegis/models/user_model.dart';
 import 'package:aegis/services/alert_service.dart';
 import 'package:aegis/services/firestore_service.dart';
+import 'package:aegis/services/share_token.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeStore implements FirestoreService {
@@ -46,8 +48,15 @@ class FakeStore implements FirestoreService {
     return alert.alertId;
   }
 
+  TripModel? trip;
+  String? alertedShareToken;
   @override
-  Future<void> markTripAlerted(String tripId) async {}
+  Future<TripModel?> getTrip(String tripId) async => trip;
+
+  @override
+  Future<void> markTripAlerted(String tripId, {String? shareToken}) async {
+    alertedShareToken = shareToken;
+  }
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -214,6 +223,110 @@ void main() {
       );
       expect(store.alerts, isEmpty);
       expect(launches, isEmpty);
+    });
+  });
+
+  group('Guardian live link in SOS message', () {
+    final token = ShareToken.generate();
+    final service = AlertService(
+      firestoreService: FakeStore(),
+      currentUserId: () => 'u1',
+      launchExternal: (_) async => true,
+      showNotification: (_, _) async {},
+    );
+    const staticLink = 'Location at alert time: https://maps.google.com/?q=6.9,79.8';
+
+    test('includes the aegis://live link and keeps the static map link', () {
+      final message = service.buildMessage(
+        type: AlertType.manualSos,
+        lat: 6.9,
+        lng: 79.8,
+        tripId: 't1',
+        shareToken: token,
+      );
+      expect(message, contains('Live location (Aegis app): aegis://live/$token'));
+      expect(message, contains(staticLink));
+      expect(
+        message.indexOf(staticLink),
+        lessThan(message.indexOf('aegis://live/')),
+      );
+    });
+
+    test('has only the static link without a valid token', () {
+      for (final bad in <String?>[null, '', 'not-a-token', token.toUpperCase()]) {
+        final message = service.buildMessage(
+          type: AlertType.fallDetected,
+          lat: 6.9,
+          lng: 79.8,
+          shareToken: bad,
+        );
+        expect(message, contains(staticLink));
+        expect(message, isNot(contains('aegis://')), reason: '$bad');
+      }
+    });
+
+    group('triggerAlert', () {
+      late FakeStore store;
+      late List<Uri> launches;
+      late AlertService sos;
+      TripModel trip({String status = TripStatus.active, DateTime? endedAt}) =>
+          TripModel(
+            tripId: 't1',
+            userId: 'u1',
+            status: status,
+            startLocation: {'lat': 6.9, 'lng': 79.8},
+            currentLocation: {'lat': 6.9, 'lng': 79.8},
+            destination: {'lat': 6.93, 'lng': 79.86},
+            startedAt: DateTime(2026, 11, 16, 9),
+            endedAt: endedAt,
+            shareToken: token,
+          );
+      setUp(() {
+        store = FakeStore()
+          ..contacts = [
+            ContactModel(id: 'real', name: 'Guardian', phone: '+94771234567', relation: ''),
+          ];
+        launches = [];
+        sos = AlertService(
+          firestoreService: store,
+          currentUserId: () => 'u1',
+          launchExternal: (uri) async {
+            launches.add(uri);
+            return true;
+          },
+          showNotification: (_, _) async {},
+        );
+      });
+      Future<AlertTriggerResult> trigger() => sos.triggerAlert(
+        userId: 'u1',
+        type: AlertType.manualSos,
+        lat: 6.9,
+        lng: 79.8,
+        tripId: 't1',
+        requestId: 'event-live',
+      );
+      String smsBody() => Uri.decodeComponent(launches.single.toString());
+
+      test('an active trip sends its live link and flags the mirror', () async {
+        store.trip = trip();
+        await trigger();
+        expect(smsBody(), contains('aegis://live/$token'));
+        expect(smsBody(), contains('https://maps.google.com/?q=6.9,79.8'));
+        expect(store.alertedShareToken, token);
+      });
+
+      test('an ended or missing trip falls back to the static link', () async {
+        for (final t in [
+          trip(status: TripStatus.completed, endedAt: DateTime(2026, 11, 16, 10)),
+          null,
+        ]) {
+          store.trip = t;
+          launches.clear();
+          await trigger();
+          expect(smsBody(), isNot(contains('aegis://')));
+          expect(smsBody(), contains('https://maps.google.com/?q=6.9,79.8'));
+        }
+      });
     });
   });
 }
