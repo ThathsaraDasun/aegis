@@ -53,7 +53,7 @@ class TripSummaryScreen extends StatelessWidget {
                   style: GoogleFonts.outfit(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AegisColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 16),

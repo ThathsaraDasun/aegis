@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../services/safety/background_monitor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../theme/aegis_theme.dart';
 import '../../services/alert_service.dart';
 import '../../services/automatic_sms_service.dart';
 import '../trip/start_trip_screen.dart';
@@ -370,134 +372,381 @@ class _WhatsAppButtonState extends State<_WhatsAppButton> {
 
 class SafetyDashboard extends StatelessWidget {
   const SafetyDashboard({super.key});
+
+  Future<void> _confirmAutomaticSms(BuildContext context, SafetyController c, bool value) async {
+    if (value) {
+      final agreed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Enable automatic SMS?'),
+          content: const Text(
+            'Real SOS and uncancelled real fall countdowns will send SMS to your saved guardians without another Send button, including while locked. Your name and available location are included. Your SIM must have service and SMS credit; long messages may cost more than one SMS. Select a default SMS SIM in Android Settings first. Demo countdowns never send. Only enable this with guardians who expect your alerts.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Enable automatic SMS'),
+            ),
+          ],
+        ),
+      );
+      if (agreed != true) return;
+    }
+    await c.setAutomaticSms(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = SafetyScope.of(context);
+    final busy = c.changingMonitoring || c.changingSms;
+    final text = Theme.of(context).textTheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
       children: [
-        Text(
-          'Your safety controls',
-          style: Theme.of(context).textTheme.headlineMedium,
+        Row(
+          children: [
+            Expanded(
+              child: Text('Your safety controls', style: text.headlineSmall),
+            ),
+            IconButton(
+              tooltip: 'How protection works',
+              icon: const Icon(Icons.info_outline, color: AegisColors.primary),
+              onPressed: () => showSafetyGuide(context),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        const Text(
-          'On Android, enabled fall monitoring continues when you lock the phone or switch apps. Keep the protection notification enabled. Force-stopping or removing Aegis from recent apps stops protection.',
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
+        const _SafetyGuideTip(),
+        _ProtectionStatusCard(active: c.monitoring, sms: c.automaticSms),
+        const SizedBox(height: 16),
         Card(
           child: Column(
             children: [
               SwitchListTile(
+                secondary: const Icon(Icons.personal_injury_outlined),
                 title: const Text('Fall monitoring'),
                 subtitle: Text(
                   c.changingMonitoring
                       ? 'Updating protection…'
                       : c.monitoring
-                      ? 'Monitoring active — check the protection notification'
-                      : 'Off',
+                      ? 'On – works even when the phone is locked'
+                      : 'Detects a hard fall and starts a countdown',
                 ),
                 value: c.monitoring,
-                onChanged: c.changingMonitoring || c.changingSms
-                    ? null
-                    : c.setMonitoring,
+                onChanged: busy ? null : c.setMonitoring,
               ),
-              SwitchListTile(
-                title: const Text('Demo mode'),
-                subtitle: const Text(
-                  'Lower shake threshold; automatic alerts are simulated. Real SOS stays real.',
-                ),
-                value: c.demo,
-                onChanged: c.changingMonitoring || c.changingSms
-                    ? null
-                    : c.setDemo,
-              ),
-              if (AutomaticSmsService.supported)
+              if (AutomaticSmsService.supported) ...[
+                const Divider(height: 1, indent: 16, endIndent: 16),
                 SwitchListTile(
+                  secondary: const Icon(Icons.sms_outlined),
                   title: const Text('Automatic guardian SMS'),
                   subtitle: Text(
                     c.changingSms
                         ? 'Checking SMS setup…'
                         : c.monitoring
-                        ? 'Stop monitoring before changing SMS settings.'
-                        : 'Uses your default SMS SIM. Charges may apply. Enable again after changing guardians or signing in again.',
+                        ? 'Turn off fall monitoring to change this'
+                        : 'Texts your guardians if you don\'t respond',
                   ),
                   value: c.automaticSms,
-                  onChanged:
-                      c.monitoring || c.changingSms || c.changingMonitoring
+                  onChanged: c.monitoring || busy
                       ? null
-                      : (value) async {
-                          if (value) {
-                            final agreed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Enable automatic SMS?'),
-                                content: const Text(
-                                  'Real SOS and uncancelled real fall countdowns will send SMS to your saved guardians without another Send button, including while locked. Your name and available location are included. Your SIM must have service and SMS credit; long messages may cost more than one SMS. Select a default SMS SIM in Android Settings first. Demo countdowns never send. Only enable this with guardians who expect your alerts.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    child: const Text('Enable automatic SMS'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (agreed != true) return;
-                          }
-                          await c.setAutomaticSms(value);
-                        },
+                      : (value) => _confirmAutomaticSms(context, c, value),
                 ),
+              ],
             ],
           ),
         ),
-        const SizedBox(height: 16),
         if (c.notice != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(top: 12),
             child: Semantics(liveRegion: true, child: Text(c.notice!)),
           ),
-        FilledButton.icon(
-          onPressed: c.changingMonitoring
-              ? null
-              : () async {
-                  if (c.monitoring) await c.setMonitoring(false);
-                  c.startCountdown(simulation: true);
-                },
-          icon: const Icon(Icons.science_outlined),
-          label: const Text('Practice countdown (no alerts)'),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'For the sensor demo, enable Demo mode and Fall monitoring, then gently shake and rotate the phone. Do not drop it. Practice countdown stops monitoring; enable it again afterwards.',
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'With Automatic guardian SMS enabled, an uncancelled real fall countdown attempts SMS even while locked. Otherwise, open Aegis to send manually. Background monitoring uses extra battery and may be stopped by Android battery controls.',
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Real SOS saves an alert. With Automatic guardian SMS enabled it attempts SIM SMS directly; otherwise it opens manual contact options. WhatsApp always needs you to tap Send.',
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const StartTripScreen())),
+            icon: const Icon(Icons.directions_walk),
+            label: const Text('Start live trip'),
+          ),
         ),
         const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute(builder: (_) => const StartTripScreen())),
-          icon: const Icon(Icons.directions_walk),
-          label: const Text('Start live trip'),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Start a trip to open live tracking. Fall monitoring and trip tracking are separate controls.',
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              leading: const Icon(Icons.science_outlined),
+              title: const Text('Practice & testing'),
+              subtitle: const Text('Try the countdown safely – no alerts are sent'),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Demo mode'),
+                  subtitle: const Text(
+                    'Easier to trigger with a gentle shake; alerts are only simulated. Real SOS stays real.',
+                  ),
+                  value: c.demo,
+                  onChanged: busy ? null : c.setDemo,
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: c.changingMonitoring
+                      ? null
+                      : () async {
+                          if (c.monitoring) await c.setMonitoring(false);
+                          c.startCountdown(simulation: true);
+                        },
+                  icon: const Icon(Icons.timer_outlined),
+                  label: const Text('Practice countdown (no alerts)'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Practice stops fall monitoring – switch it on again afterwards.',
+                  style: text.bodySmall,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// Big, glanceable "am I protected?" summary at the top of the Safety tab.
+class _ProtectionStatusCard extends StatelessWidget {
+  final bool active;
+  final bool sms;
+  const _ProtectionStatusCard({required this.active, required this.sms});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AegisColors.primary : AegisColors.textSecondary;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: active
+            ? const LinearGradient(colors: [AegisColors.azure, AegisColors.dodgerBlue])
+            : null,
+        color: active ? null : Colors.white,
+        borderRadius: BorderRadius.circular(AegisRadius.xl),
+        border: active ? null : Border.all(color: AegisColors.outline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: active ? Colors.white.withValues(alpha: 0.2) : AegisColors.surfaceContainerHigh,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              active ? Icons.verified_user : Icons.shield_outlined,
+              color: active ? Colors.white : color,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  active ? 'You are protected' : 'Protection is off',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: active ? Colors.white : AegisColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  active
+                      ? (sms
+                          ? 'Fall monitoring on · guardians get an SMS if you don\'t respond'
+                          : 'Fall monitoring on · you send the alert yourself')
+                      : 'Turn on fall monitoring before you walk alone',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: active ? Colors.white.withValues(alpha: 0.9) : AegisColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One-time "new here?" tip. Dismissed for good once closed or opened.
+class _SafetyGuideTip extends StatefulWidget {
+  const _SafetyGuideTip();
+  @override
+  State<_SafetyGuideTip> createState() => _SafetyGuideTipState();
+}
+
+class _SafetyGuideTipState extends State<_SafetyGuideTip> {
+  static const _prefKey = 'safety_guide_seen';
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      if (mounted && p.getBool(_prefKey) != true) setState(() => _visible = true);
+    }).catchError((_) {});
+  }
+
+  Future<void> _dismiss() async {
+    setState(() => _visible = false);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(_prefKey, true);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+        decoration: BoxDecoration(
+          color: AegisColors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(AegisRadius.lg),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.lightbulb_outline, color: AegisColors.primary),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('New to Aegis? See how protection works.')),
+            TextButton(
+              onPressed: () {
+                _dismiss();
+                showSafetyGuide(context);
+              },
+              child: const Text('Show me'),
+            ),
+            IconButton(
+              tooltip: 'Dismiss',
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: _dismiss,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "How protection works" – the detailed guidance, shown only on request.
+Future<void> showSafetyGuide(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      builder: (context, scroll) => ListView(
+        controller: scroll,
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+        children: [
+          Text('How protection works', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          const _GuideItem(
+            icon: Icons.personal_injury_outlined,
+            title: 'Fall monitoring',
+            body:
+                'Keeps working when you lock the phone or switch apps on Android. Keep the protection notification on. Force-stopping Aegis or swiping it away from recent apps stops protection, and Android battery saving may also stop it.',
+          ),
+          const _GuideItem(
+            icon: Icons.timer_outlined,
+            title: 'The countdown',
+            body:
+                'After a possible fall you get a countdown. Tap "I am OK" to cancel. If you don\'t respond, Aegis alerts your guardians.',
+          ),
+          const _GuideItem(
+            icon: Icons.sms_outlined,
+            title: 'Automatic guardian SMS',
+            body:
+                'When on, an uncancelled real countdown sends SMS from your default SIM, even while locked. Charges may apply. When off, open Aegis and send the alert yourself. Turn it on again after changing guardians or signing in again.',
+          ),
+          const _GuideItem(
+            icon: Icons.sos,
+            title: 'Real SOS button',
+            body:
+                'Always saves an alert. With automatic SMS on it texts your guardians directly; otherwise it opens contact options. WhatsApp always needs you to tap Send.',
+          ),
+          const _GuideItem(
+            icon: Icons.directions_walk,
+            title: 'Live trips',
+            body:
+                'Start a trip to share live tracking. Fall monitoring and trip tracking are separate – you can use either or both.',
+          ),
+          const _GuideItem(
+            icon: Icons.science_outlined,
+            title: 'Practising',
+            body:
+                'Turn on Demo mode and Fall monitoring, then gently shake and rotate the phone – never drop it. Demo countdowns never contact anyone.',
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _GuideItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  const _GuideItem({required this.icon, required this.title, required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AegisColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(AegisRadius.md),
+            ),
+            child: Icon(icon, size: 20, color: AegisColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text(body, style: const TextStyle(color: AegisColors.textSecondary, height: 1.35)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 import 'package:latlong2/latlong.dart';
 
 import '../../models/hazard_report_model.dart';
+import '../../screens/trip/destination_search_sheet.dart';
 import '../../screens/trip/start_trip_screen.dart';
+import '../../services/destination_search_service.dart';
 import '../../services/route/geo_utils.dart';
 import '../../services/route/position_helper.dart';
 import '../../services/route/route_planner_service.dart';
@@ -21,12 +23,12 @@ import 'widgets/safety_score_ring.dart';
 /// Start Trip flow (destination + route polyline).
 typedef RouteChosenCallback = void Function(CandidateRoute route, RouteSafetyScore score);
 
-/// Safe Route: two candidate routes side by side with explainable safety
-/// scores (crowd-sourced hazards + OSM street lighting) – Member 3.
+/// Safe Route: live Google Map + two candidate walking routes side by side with
+/// explainable safety scores (crowd-sourced hazards + OSM street lighting).
 class RouteComparisonScreen extends StatefulWidget {
   final RouteChosenCallback? onRouteChosen;
 
-  /// Optional preset destination (skips the "tap the map" step).
+  /// Optional preset destination (skips the "pick a place" step).
   final LatLng? destination;
 
   const RouteComparisonScreen({super.key, this.onRouteChosen, this.destination});
@@ -36,16 +38,18 @@ class RouteComparisonScreen extends StatefulWidget {
 }
 
 class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
-  static const List<Color> _routeColors = [AegisColors.secondary, Color(0xFFB388FF)];
+  static const List<Color> _routeColors = [AegisColors.primary, AegisColors.accent];
 
   final RouteSafetyService _safety = RouteSafetyService();
   final RoutePlannerService _planner = RoutePlannerService();
-  final MapController _map = MapController();
+  gm.GoogleMapController? _map;
 
   LatLng? _origin;
   bool _gpsLive = false;
+  bool _locating = false;
   String? _gpsReason;
   LatLng? _destination;
+  String? _destinationName;
 
   List<CandidateRoute> _routes = const [];
   List<RouteSafetyScore> _scores = const [];
@@ -64,32 +68,63 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     _locate(requestPermission: false);
   }
 
+  @override
+  void dispose() {
+    _map?.dispose();
+    super.dispose();
+  }
+
+  static gm.LatLng _g(LatLng p) => gm.LatLng(p.latitude, p.longitude);
+  static LatLng _l(gm.LatLng p) => LatLng(p.latitude, p.longitude);
+
   Future<void> _locate({bool requestPermission = true}) async {
+    setState(() => _locating = true);
     final r = await PositionHelper.current(requestPermission: requestPermission);
     if (!mounted) return;
     setState(() {
       _origin = r.position;
       _gpsLive = r.isLive;
       _gpsReason = r.reason;
+      _locating = false;
     });
-    if (_destination != null) _compute();
+    if (_destination != null) {
+      _compute();
+    } else {
+      _moveCamera(r.position, 16);
+    }
   }
 
-  void _setDestination(LatLng point) {
-    setState(() => _destination = point);
+  void _moveCamera(LatLng target, double zoom) {
+    _map?.animateCamera(gm.CameraUpdate.newLatLngZoom(_g(target), zoom));
+  }
+
+  void _setDestination(LatLng point, {String? name}) {
+    setState(() {
+      _destination = point;
+      _destinationName = name;
+    });
     _compute();
   }
 
-  void _useDemoDestination() {
-    final origin = _origin ?? PositionHelper.fallback;
-    _setDestination(GeoUtils.offset(origin, northM: 650, eastM: 700));
+  Future<void> _searchDestination() async {
+    final place = await showModalBottomSheet<DestinationPlace>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const FractionallySizedBox(
+        heightFactor: 0.85,
+        child: DestinationSearchSheet(),
+      ),
+    );
+    if (!mounted || place == null) return;
+    _setDestination(place.position, name: place.name);
   }
 
-  Future<void> _compute({bool demo = false}) async {
+  Future<void> _compute() async {
     final from = _origin, to = _destination;
     if (from == null || to == null) return;
     if (GeoUtils.distanceM(from, to) < 60) {
-      setState(() => _error = 'Destination is too close – pick a point further away.');
+      setState(() => _error = 'That place is very close to you – pick somewhere further away.');
       return;
     }
 
@@ -103,7 +138,7 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     });
 
     try {
-      final routes = demo ? _planner.demoRoutes(from, to) : await _planner.findTwoRoutes(from, to);
+      final routes = await _planner.findTwoRoutes(from, to);
       if (!mounted || id != _requestId) return;
       setState(() => _routes = routes);
       _fitToRoutes();
@@ -119,38 +154,45 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       if (!mounted || id != _requestId) return;
       setState(() {
         _loading = false;
-        _error = 'Could not get walking routes. Check your internet connection.';
+        _error = 'Could not get walking routes. Check your internet connection and try again.';
       });
     }
   }
 
   void _fitToRoutes() {
-    final pts = [
+    final pts = <LatLng>[
       ..._routes.expand((r) => r.points),
       ?_origin,
       ?_destination,
     ];
-    if (pts.length < 2) return;
-    try {
-      _map.fitCamera(CameraFit.coordinates(
-        coordinates: pts,
-        padding: const EdgeInsets.fromLTRB(40, 70, 40, 40),
-      ));
-    } catch (_) {
-      // Map not rendered yet – initial camera is fine.
+    if (pts.length < 2 || _map == null) return;
+    var minLat = pts.first.latitude, maxLat = pts.first.latitude;
+    var minLng = pts.first.longitude, maxLng = pts.first.longitude;
+    for (final p in pts) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
     }
+    final bounds = gm.LatLngBounds(
+      southwest: gm.LatLng(minLat, minLng),
+      northeast: gm.LatLng(maxLat, maxLng),
+    );
+    // Throws on Android if the map hasn't been laid out yet – then keep the camera.
+    _map!.animateCamera(gm.CameraUpdate.newLatLngBounds(bounds, 56)).catchError((_) {});
   }
 
   void _reset() {
     _requestId++;
     setState(() {
       _destination = null;
+      _destinationName = null;
       _routes = const [];
       _scores = const [];
       _error = null;
       _loading = false;
     });
-    if (_origin != null) _map.move(_origin!, 15);
+    if (_origin != null) _moveCamera(_origin!, 16);
   }
 
   void _choose() {
@@ -161,13 +203,12 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       widget.onRouteChosen!(route, score);
       return;
     }
-    // Priority 4: navigate directly to StartTripScreen with the chosen
-    // destination and route polyline pre-filled (Members 2 & 3).
-    final dest = _destination!;
+    // Navigate to StartTripScreen with the chosen destination and route pre-filled.
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StartTripScreen(
-          presetDestination: dest,
+          presetDestination: _destination!,
+          presetDestinationName: _destinationName,
           presetRoutePoints: route.points,
         ),
       ),
@@ -207,8 +248,8 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                Expanded(flex: 4, child: _buildMap()),
-                Expanded(flex: 6, child: _buildPanel()),
+                Expanded(flex: 5, child: _buildMap()),
+                Expanded(flex: 5, child: _buildPanel()),
               ],
             ),
     );
@@ -220,57 +261,94 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
         ? {for (final s in _scores) for (final h in s.hazards) h.report.id: h.report}.values
         : const <HazardReportModel>[];
 
+    final markers = <gm.Marker>{
+      for (final h in hazards)
+        gm.Marker(
+          markerId: gm.MarkerId('hazard-${h.id}'),
+          position: gm.LatLng(h.lat, h.lng),
+          icon: gm.BitmapDescriptor.defaultMarkerWithHue(_hazardHue(h.category)),
+          infoWindow: gm.InfoWindow(
+            title: h.categoryInfo.label,
+            snippet: 'Reported ${timeAgo(h.reportedAt)}',
+          ),
+        ),
+      if (!_gpsLive)
+        gm.Marker(
+          markerId: const gm.MarkerId('origin'),
+          position: _g(origin),
+          icon: gm.BitmapDescriptor.defaultMarkerWithHue(gm.BitmapDescriptor.hueAzure),
+          infoWindow: const gm.InfoWindow(title: 'Start (approximate)'),
+        ),
+      if (_destination != null)
+        gm.Marker(
+          markerId: const gm.MarkerId('destination'),
+          position: _g(_destination!),
+          icon: gm.BitmapDescriptor.defaultMarkerWithHue(gm.BitmapDescriptor.hueRed),
+          infoWindow: gm.InfoWindow(title: _destinationName ?? 'Destination'),
+        ),
+    };
+
+    final polylines = <gm.Polyline>{
+      for (var i = 0; i < _routes.length; i++)
+        gm.Polyline(
+          polylineId: gm.PolylineId('route-$i'),
+          points: _routes[i].points.map(_g).toList(),
+          color: i == _selected
+              ? _routeColors[i % _routeColors.length]
+              : _routeColors[i % _routeColors.length].withValues(alpha: 0.55),
+          width: i == _selected ? 7 : 5,
+          zIndex: i == _selected ? 2 : 1,
+          consumeTapEvents: true,
+          onTap: () => setState(() => _selected = i),
+        ),
+    };
+
     return Stack(
       children: [
-        AegisMap(
-          controller: _map,
-          initialCenter: origin,
-          initialZoom: 15,
-          onTap: (_, p) => _setDestination(p),
-          onMapReady: _fitToRoutes,
-          children: [
-            PolylineLayer(
-              polylines: [
-                for (var i = _routes.length - 1; i >= 0; i--)
-                  if (i != _selected) _polyline(i, selected: false),
-                if (_routes.length > _selected) _polyline(_selected, selected: true),
-              ],
-            ),
-            MarkerLayer(markers: [
-              ...hazards.map((h) => Marker(
-                    point: LatLng(h.lat, h.lng),
-                    width: 24,
-                    height: 24,
-                    child: HazardPin(category: h.category, size: 24),
-                  )),
-              Marker(point: origin, width: 26, height: 26, child: const MyLocationDot()),
-              if (_destination != null)
-                Marker(
-                  point: _destination!,
-                  width: 34,
-                  height: 46,
-                  alignment: Alignment.topCenter,
-                  child: const DestinationPin(),
-                ),
-            ]),
-          ],
+        gm.GoogleMap(
+          initialCameraPosition: gm.CameraPosition(target: _g(origin), zoom: 16),
+          onMapCreated: (c) {
+            _map = c;
+            if (_routes.isNotEmpty) _fitToRoutes();
+          },
+          myLocationEnabled: _gpsLive,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          mapToolbarEnabled: false,
+          compassEnabled: true,
+          rotateGesturesEnabled: false,
+          markers: markers,
+          polylines: polylines,
+          onTap: (p) => _setDestination(_l(p)),
+          padding: const EdgeInsets.only(top: 64),
         ),
         Positioned(
           top: AegisSpacing.md,
           left: AegisSpacing.md,
           right: AegisSpacing.md,
-          child: _hint(),
+          child: _searchBar(),
         ),
+        if (!_gpsLive)
+          Positioned(
+            top: 68,
+            left: AegisSpacing.md,
+            right: AegisSpacing.md,
+            child: _gpsBanner(),
+          ),
         Positioned(
           right: AegisSpacing.md,
-          bottom: AegisSpacing.xl,
+          bottom: AegisSpacing.lg,
           child: Column(
             children: [
               if (_destination != null) ...[
                 MapFab(icon: Icons.close, tooltip: 'Clear destination', onPressed: _reset),
                 const SizedBox(height: AegisSpacing.sm),
               ],
-              MapFab(icon: Icons.my_location, tooltip: 'My location', onPressed: () => _locate()),
+              MapFab(
+                icon: _locating ? Icons.gps_not_fixed : Icons.my_location,
+                tooltip: 'My location',
+                onPressed: () => _locate(),
+              ),
             ],
           ),
         ),
@@ -278,52 +356,90 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     );
   }
 
-  Polyline _polyline(int i, {required bool selected}) {
-    final color = _routeColors[i % _routeColors.length];
-    return Polyline(
-      points: _routes[i].points,
-      strokeWidth: selected ? 6 : 4,
-      color: selected ? color : color.withValues(alpha: 0.45),
-      borderColor: selected ? Colors.black54 : Colors.transparent,
-      borderStrokeWidth: selected ? 2 : 0,
+  double _hazardHue(String category) {
+    switch (HazardCategory.normalizeKey(category)) {
+      case 'poor_lighting':
+        return gm.BitmapDescriptor.hueOrange;
+      case 'unsafe_area':
+      case 'past_incident':
+        return gm.BitmapDescriptor.hueRed;
+      case 'no_sidewalk':
+        return gm.BitmapDescriptor.hueYellow;
+      default:
+        return gm.BitmapDescriptor.hueViolet;
+    }
+  }
+
+  /// Google-Maps-style "Where to?" bar – opens place search.
+  Widget _searchBar() {
+    final label = _destination == null
+        ? 'Where are you walking to?'
+        : (_destinationName ?? 'Pinned location on map');
+    return Material(
+      color: Colors.white,
+      elevation: 3,
+      shadowColor: AegisColors.primary.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(AegisRadius.xl),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AegisRadius.xl),
+        onTap: _searchDestination,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.lg, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.search, color: AegisColors.primary),
+              const SizedBox(width: AegisSpacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: _destination == null ? FontWeight.w500 : FontWeight.w600,
+                    color: _destination == null ? AegisColors.textSecondary : AegisColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (_destination != null)
+                GestureDetector(
+                  onTap: _reset,
+                  child: const Icon(Icons.close, size: 20, color: AegisColors.textSecondary),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _hint() {
-    final String text;
-    final IconData icon;
-    Color color = AegisColors.textSecondary;
-    if (!_gpsLive) {
-      text = '${_gpsReason ?? 'GPS unavailable'} – tap to use GPS';
-      icon = Icons.gps_off;
-      color = AegisColors.warning;
-    } else if (_destination == null) {
-      text = 'Tap the map where you want to walk to';
-      icon = Icons.touch_app_outlined;
-    } else {
-      text = 'Tap anywhere to change destination';
-      icon = Icons.flag_outlined;
-    }
-    return GestureDetector(
-      onTap: _gpsLive ? null : () => _locate(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.md, vertical: AegisSpacing.sm),
-        decoration: BoxDecoration(
-          color: AegisColors.surfaceContainerLow.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(AegisRadius.md),
-          border: Border.all(
-            color: _gpsLive ? AegisColors.surfaceContainerHighest : color.withValues(alpha: 0.6),
+  Widget _gpsBanner() {
+    return Material(
+      color: Colors.white,
+      elevation: 2,
+      borderRadius: BorderRadius.circular(AegisRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AegisRadius.md),
+        onTap: _locating ? null : () => _locate(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AegisSpacing.md, vertical: AegisSpacing.sm),
+          child: Row(
+            children: [
+              const Icon(Icons.gps_off, size: 18, color: AegisColors.warning),
+              const SizedBox(width: AegisSpacing.sm),
+              Expanded(
+                child: Text(
+                  '${_gpsReason ?? 'GPS unavailable'}. Showing an approximate start.',
+                  style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textPrimary),
+                ),
+              ),
+              Text(
+                _locating ? 'Locating…' : 'Turn on',
+                style: GoogleFonts.outfit(
+                    fontSize: 12, fontWeight: FontWeight.bold, color: AegisColors.primary),
+              ),
+            ],
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: AegisSpacing.sm),
-            Expanded(
-              child: Text(text,
-                  style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textPrimary)),
-            ),
-          ],
         ),
       ),
     );
@@ -335,16 +451,28 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       child = ListView(
         padding: const EdgeInsets.all(AegisSpacing.lg),
         children: [
-          AegisEmptyState(
-            icon: Icons.alt_route,
-            iconColor: AegisColors.secondary,
-            title: 'Compare two walking routes',
-            message: 'Pick a destination on the map. Safe Walk finds two routes and scores each '
-                'one using street lighting (OpenStreetMap) and hazards reported by other walkers.',
-            actionLabel: 'Try a demo destination',
-            actionIcon: Icons.flag_outlined,
-            onAction: _useDemoDestination,
+          Text('Plan a safer walk',
+              style: GoogleFonts.outfit(
+                  fontSize: 18, fontWeight: FontWeight.bold, color: AegisColors.textPrimary)),
+          const SizedBox(height: AegisSpacing.xs),
+          Text(
+            'Search for a place or tap anywhere on the map. We compare two walking routes '
+            'using street lighting and hazards reported by other walkers.',
+            style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textSecondary),
           ),
+          const SizedBox(height: AegisSpacing.lg),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: _searchDestination,
+              icon: const Icon(Icons.search),
+              label: const Text('Search for a place'),
+            ),
+          ),
+          const SizedBox(height: AegisSpacing.lg),
+          const _StepRow(icon: Icons.place_outlined, text: 'Choose where you are going'),
+          const _StepRow(icon: Icons.alt_route, text: 'Compare the safety score of two routes'),
+          const _StepRow(icon: Icons.directions_walk, text: 'Start a live trip your guardians can follow'),
         ],
       );
     } else if (_error != null && !_loading) {
@@ -356,15 +484,9 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
             iconColor: AegisColors.warning,
             title: 'Routes unavailable',
             message: _error!,
-            actionLabel: 'Retry',
+            actionLabel: 'Try again',
             actionIcon: Icons.refresh,
-            onAction: () => _compute(),
-          ),
-          const SizedBox(height: AegisSpacing.md),
-          OutlinedButton.icon(
-            onPressed: () => _compute(demo: true),
-            icon: const Icon(Icons.science_outlined),
-            label: const Text('Use offline demo routes'),
+            onAction: _compute,
           ),
         ],
       );
@@ -376,6 +498,7 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       decoration: const BoxDecoration(
         color: AegisColors.surfaceContainerLow,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AegisRadius.xxl)),
+        boxShadow: [BoxShadow(color: Color(0x1A007FFF), blurRadius: 12, offset: Offset(0, -2))],
       ),
       child: child,
     );
@@ -386,25 +509,33 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     final best = scoresReady ? (_scores[0].score >= _scores[1].score ? 0 : 1) : -1;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(AegisSpacing.lg, AegisSpacing.lg, AegisSpacing.lg, AegisSpacing.xl),
+      padding: const EdgeInsets.fromLTRB(AegisSpacing.lg, AegisSpacing.lg, AegisSpacing.lg, 96),
       children: [
         Row(
           children: [
+            if (_loading) ...[
+              const SizedBox(
+                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: AegisSpacing.sm),
+            ],
             Expanded(
               child: Text(
                 _loading && _routes.isEmpty
                     ? 'Finding walking routes…'
                     : _loading
-                        ? 'Scoring safety…'
+                        ? 'Checking lighting and hazards…'
                         : 'Pick the route you feel safest on',
                 style: GoogleFonts.outfit(
                     fontSize: 16, fontWeight: FontWeight.bold, color: AegisColors.textPrimary),
               ),
             ),
-            if (_routes.isNotEmpty && _routes.first.isDemo)
-              const Chip(label: Text('DEMO'), visualDensity: VisualDensity.compact),
           ],
         ),
+        if (_routes.isNotEmpty && !_loading) ...[
+          const SizedBox(height: 2),
+          Text('Tip: tap a line on the map to select it.',
+              style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textSecondary)),
+        ],
         const SizedBox(height: AegisSpacing.md),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,22 +558,52 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
         ),
         if (scoresReady) ...[
           const SizedBox(height: AegisSpacing.lg),
-          _ScoreExplanation(
-            route: _routes[_selected],
-            score: _scores[_selected],
-            color: _routeColors[_selected],
-          ),
-          const SizedBox(height: AegisSpacing.lg),
           SizedBox(
             height: 52,
             child: FilledButton.icon(
               onPressed: _choose,
               icon: const Icon(Icons.directions_walk),
-              label: Text('Walk ${_routes[_selected].label}'),
+              label: Text('Start walking · ${_routes[_selected].label}'),
             ),
+          ),
+          const SizedBox(height: AegisSpacing.lg),
+          _ScoreExplanation(
+            route: _routes[_selected],
+            score: _scores[_selected],
+            color: _routeColors[_selected],
           ),
         ],
       ],
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _StepRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AegisSpacing.sm),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AegisColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(AegisRadius.md),
+            ),
+            child: Icon(icon, size: 18, color: AegisColors.primary),
+          ),
+          const SizedBox(width: AegisSpacing.md),
+          Expanded(
+            child: Text(text,
+                style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textPrimary)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -558,7 +719,7 @@ class _ScoreExplanation extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: true,
+          initiallyExpanded: false,
           iconColor: AegisColors.textSecondary,
           collapsedIconColor: AegisColors.textSecondary,
           leading: Icon(Icons.insights_outlined, color: color),

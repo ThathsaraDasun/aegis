@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../theme/aegis_theme.dart';
 
-/// Dark OpenStreetMap base map (CARTO dark tiles – no API key) shared by the
+/// Light OpenStreetMap base map (CARTO Voyager tiles – no API key) shared by the
 /// Safe Route screens. Pass overlay layers as [children].
 class AegisMap extends StatelessWidget {
   final MapController? controller;
@@ -49,7 +49,7 @@ class AegisMap extends StatelessWidget {
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
           subdomains: const ['a', 'b', 'c', 'd'],
           retinaMode: RetinaMode.isHighDensity(context),
           userAgentPackageName: 'com.aegis.safewalk',
@@ -58,7 +58,7 @@ class AegisMap extends StatelessWidget {
         ...children,
         const SimpleAttributionWidget(
           source: Text('© OpenStreetMap contributors © CARTO'),
-          backgroundColor: Color(0xAA1E1F25),
+          backgroundColor: Color(0xCCFFFFFF),
         ),
       ],
     );
@@ -73,7 +73,7 @@ class MyLocationDot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AegisColors.secondary.withValues(alpha: 0.25),
+        color: AegisColors.accent.withValues(alpha: 0.35),
         shape: BoxShape.circle,
       ),
       padding: const EdgeInsets.all(5),
@@ -126,12 +126,12 @@ class MapFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AegisColors.surfaceContainerHigh,
+      color: Colors.white,
       shape: const CircleBorder(),
       elevation: 4,
       child: IconButton(
         tooltip: tooltip,
-        icon: Icon(icon, color: AegisColors.textPrimary),
+        icon: Icon(icon, color: AegisColors.primary),
         onPressed: onPressed,
       ),
     );
