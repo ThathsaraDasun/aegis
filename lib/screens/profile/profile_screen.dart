@@ -6,6 +6,7 @@ import '../../models/user_model.dart';
 import '../../services/seed_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
+import 'edit_profile_screen.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
 const bool _useDummyData = false;
@@ -232,13 +233,9 @@ class ProfileScreen extends StatelessWidget {
             height: 52,
             child: OutlinedButton.icon(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Edit Profile feature coming soon!',
-                      style: GoogleFonts.inter(),
-                    ),
-                    backgroundColor: AegisColors.surfaceContainerHighest,
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => EditProfileScreen(initialUser: user),
                   ),
                 );
               },
