@@ -21,6 +21,8 @@ class StartTripScreen extends StatefulWidget {
   final String? Function()? currentUserId;
   final Widget Function(String)? liveTripBuilder;
   final TileProvider? tileProvider;
+  final LatLng? initialDestination;
+  final String? initialDestinationName;
   const StartTripScreen({
     super.key,
     this.store,
@@ -29,6 +31,8 @@ class StartTripScreen extends StatefulWidget {
     this.currentUserId,
     this.liveTripBuilder,
     this.tileProvider,
+    this.initialDestination,
+    this.initialDestinationName,
   });
   @override
   State<StartTripScreen> createState() => _StartTripScreenState();
@@ -74,6 +78,10 @@ class _StartTripScreenState extends State<StartTripScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialDestination != null) {
+      _destination = widget.initialDestination;
+      _destinationName = widget.initialDestinationName;
+    }
     _locate();
   }
 
