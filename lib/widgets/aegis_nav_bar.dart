@@ -59,6 +59,7 @@ class AegisNavBar extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final centerSelected = currentIndex == centerItem.index;
 
+    // Container wrapper with aegis mist background for safe bottom inset
     return Container(
       color: _mist,
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 12),
