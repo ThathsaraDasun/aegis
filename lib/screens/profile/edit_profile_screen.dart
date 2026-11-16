@@ -1,10 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/user_model.dart';
-import '../../services/contacts_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/phone_validation.dart';
 import '../../widgets/profile_photo_avatar.dart';
 import '../safety/safety_shell.dart';
 
@@ -101,7 +102,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isSaving = true);
 
     final String updatedName = _nameController.text.trim();
-    final String updatedPhone = _phoneController.text.trim();
+    final String updatedPhone = _phoneController.text.trim().isEmpty
+        ? ''
+        : PhoneValidation.normalize(_phoneController.text);
     final String updatedBlood = _selectedBloodType == 'Not Set'
         ? ''
         : _selectedBloodType;
@@ -317,13 +320,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               TextFormField(
                                 controller: _phoneController,
                                 keyboardType: TextInputType.phone,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9+\s\-()]'),
+                                  ),
+                                ],
                                 style: _fieldText,
                                 cursorColor: _P.azure,
-                                validator: (v) => ContactsService.validatePhone(v, optional: true),
                                 decoration: _buildInputDecoration(
                                   label: 'Phone Number',
-                                  hintText: 'e.g. 0771234567 or +94771234567',
+                                  hintText: 'e.g. 0771234567',
                                   prefixIcon: Icons.phone_outlined,
+                                ),
+                                validator: (v) => PhoneValidation.validate(
+                                  v,
+                                  required: false,
                                 ),
                               ),
                             ],

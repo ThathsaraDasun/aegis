@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/contact_model.dart';
 import '../models/medical_profile_model.dart';
+import 'phone_validation.dart';
 
 /// Trusted contacts (`users/{uid}/contacts`) and the user's medical profile
 /// (fields on `users/{uid}`) – Member 3.
@@ -125,52 +126,11 @@ class ContactsService {
   // ---------------------------------------------------------------------------
 
   /// Strips spaces, dashes and brackets; converts a local Sri Lankan number
-  /// (07XXXXXXXX) to +94 format. Other numbers are left as typed.
-  static String normalizePhone(String raw) {
-    var p = raw.trim().replaceAll(RegExp(r'[\s\-()]'), '');
-    if (p.startsWith('00')) p = '+${p.substring(2)}';
-    if (RegExp(r'^0\d{9}$').hasMatch(p)) p = '+94${p.substring(1)}';
-    return p;
-  }
+  /// (07XXXXXXXX) to +94 format. See [PhoneValidation.normalize].
+  static String normalizePhone(String raw) => PhoneValidation.normalize(raw);
 
-  /// Returns an error message, or null when the number looks valid.
-  /// Enforces standard style: starting with 0 (10 digits total) and must start
-  /// with valid Sri Lankan mobile prefixes (070, 071, 072, 074, 075, 076, 077, 078),
-  /// or international format starting with +94 (e.g. +94771234567).
-  static String? validatePhone(String? raw, {bool optional = false}) {
-    final clean = (raw ?? '').trim().replaceAll(RegExp(r'[\s\-()]'), '');
-    if (clean.isEmpty) {
-      return optional ? null : 'Phone number is required';
-    }
-
-    // Standard 10-digit Sri Lankan mobile number starting with 0
-    if (clean.startsWith('0')) {
-      if (clean.length != 10) {
-        return 'Phone number must be exactly 10 digits (e.g. 0771234567)';
-      }
-      final validPrefixes = RegExp(r'^07[01245678]\d{7}$');
-      if (!validPrefixes.hasMatch(clean)) {
-        return 'Number must start with 070, 071, 072, 074, 075, 076, 077, or 078';
-      }
-      return null;
-    }
-
-    // International format starting with + (e.g. +94771234567)
-    if (clean.startsWith('+')) {
-      if (clean.startsWith('+94')) {
-        final localEquivalent = '0${clean.substring(3)}';
-        if (localEquivalent.length != 10 ||
-            !RegExp(r'^07[01245678]\d{7}$').hasMatch(localEquivalent)) {
-          return 'International +94 number must start with a valid mobile prefix (e.g. +94771234567)';
-        }
-        return null;
-      }
-      if (!RegExp(r'^\+\d{9,14}$').hasMatch(clean)) {
-        return 'Enter a valid international phone number (e.g. +94771234567)';
-      }
-      return null;
-    }
-
-    return 'Phone number must start with 0 (e.g. 0771234567) or +94';
-  }
+  /// Returns an error message, or null when the number is valid. Guardians
+  /// receive SMS alerts, so Sri Lankan numbers must be mobiles (07…).
+  static String? validatePhone(String? raw) =>
+      PhoneValidation.validate(raw, required: true, mobileOnly: true);
 }

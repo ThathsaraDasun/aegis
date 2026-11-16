@@ -54,7 +54,11 @@ class PositionHelper {
         return PositionResult(LatLng(pos.latitude, pos.longitude), isLive: true);
       } catch (_) {
         if (last != null) {
-          return PositionResult(LatLng(last.latitude, last.longitude), isLive: true);
+          return PositionResult(
+            LatLng(last.latitude, last.longitude),
+            isLive: false,
+            reason: 'Using your last known location; current GPS unavailable',
+          );
         }
         rethrow;
       }

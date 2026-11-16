@@ -10,7 +10,10 @@ class AutomaticSmsService {
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
-  static Future<int> enable() async {
+  /// Enables automatic SMS for every guardian with a valid number. Returns how
+  /// many numbers will receive SMS and the names of guardians skipped because
+  /// their number is invalid (they should fix it in the Guardians tab).
+  static Future<({int count, List<String> skipped})> enable() async {
     if (!supported) throw StateError('Automatic SIM SMS requires Android.');
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw StateError('Sign in first.');
@@ -21,17 +24,26 @@ class AutomaticSmsService {
     final profile = await store
         .getUserProfile(uid)
         .timeout(const Duration(seconds: 10));
-    final phones = contacts
-        .where((c) => !c.id.startsWith('demo_'))
-        .map((c) => ContactsService.normalizePhone(c.phone))
-        .toSet()
-        .toList();
-    if (phones.isEmpty ||
-        phones.length > 10 ||
-        phones.any((p) => !RegExp(r'^\+[1-9][0-9]{6,14}$').hasMatch(p))) {
+    final valid = RegExp(r'^\+[1-9][0-9]{6,14}$');
+    final phones = <String>{};
+    final skipped = <String>[];
+    for (final c in contacts.where((c) => !c.id.startsWith('demo_'))) {
+      final phone = ContactsService.normalizePhone(c.phone);
+      if (valid.hasMatch(phone)) {
+        phones.add(phone);
+      } else {
+        skipped.add(c.name.isEmpty ? c.phone : c.name);
+      }
+    }
+    if (phones.isEmpty) {
       throw StateError(
-        'Add 1–10 guardians with international phone numbers first.',
+        skipped.isEmpty
+            ? 'Add a guardian with a mobile number first (Guardians tab).'
+            : 'Fix the phone number of ${skipped.join(', ')} in the Guardians tab (e.g. 0771234567), then try again.',
       );
+    }
+    if (phones.length > 10) {
+      throw StateError('Automatic SMS supports up to 10 guardians.');
     }
     if (await _channel.invokeMethod<bool>('smsPermission') != true) {
       throw StateError(
@@ -43,11 +55,11 @@ class AutomaticSmsService {
     }
     await _channel.invokeMethod('smsConfigure', {
       'uid': uid,
-      'phones': phones,
+      'phones': phones.toList(),
       'name': profile?.name ?? 'Aegis user',
     });
     enabled = true;
-    return phones.length;
+    return (count: phones.length, skipped: skipped);
   }
 
   static Future<void> disable() async {

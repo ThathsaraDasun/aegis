@@ -51,10 +51,10 @@ class LightingSummary {
   });
 
   const LightingSummary.unavailable()
-      : litWays = 0,
-        unlitWays = 0,
-        unknownWays = 0,
-        available = false;
+    : litWays = 0,
+      unlitWays = 0,
+      unknownWays = 0,
+      available = false;
 
   int get taggedWays => litWays + unlitWays;
   int get totalWays => taggedWays + unknownWays;
@@ -100,7 +100,11 @@ class RouteSafetyScore {
     required this.hazardPenalty,
   });
 
+  /// Missing lighting is not evidence of an average or safe street.
+  bool get hasLightingData => lighting.available && lighting.litRatio != null;
+
   String get rating {
+    if (!hasLightingData) return 'Not safety-rated';
     if (score >= 75) return 'Safe';
     if (score >= 50) return 'Moderate';
     return 'Risky';
@@ -111,27 +115,43 @@ class RouteSafetyScore {
     final ratio = lighting.litRatio;
     final lines = <String>[];
     if (!lighting.available) {
-      lines.add('Street-lighting data unavailable (offline) – neutral 50 used.');
+      lines.add(
+        'Street-lighting data could not be loaded. No overall safety rating is available.',
+      );
     } else if (ratio == null) {
-      lines.add('No OSM lighting tags on ${lighting.totalWays} nearby streets – neutral 50 used.');
+      lines.add(
+        'Lighting is not mapped on these nearby streets. No overall safety rating is available.',
+      );
     } else {
       lines.add(
-          '${(ratio * 100).round()}% of tagged streets are lit (${lighting.litWays}/${lighting.taggedWays} OSM ways).');
+        '${(ratio * 100).round()}% of tagged streets are lit (${lighting.litWays}/${lighting.taggedWays} OSM ways).',
+      );
     }
     if (hazards.isEmpty) {
-      lines.add('No hazard reports within ${RouteSafetyScorer.hazardBufferM.round()} m of this route.');
+      lines.add(
+        'No hazard reports within ${RouteSafetyScorer.hazardBufferM.round()} m of this route.',
+      );
     } else {
       final byCat = <String, int>{};
       for (final h in hazards) {
         final label = h.report.categoryInfo.label;
         byCat[label] = (byCat[label] ?? 0) + 1;
       }
-      final summary = byCat.entries.map((e) => '${e.value}× ${e.key}').join(', ');
+      final summary = byCat.entries
+          .map((e) => '${e.value}× ${e.key}')
+          .join(', ');
       lines.add('${hazards.length} hazard report(s) nearby: $summary.');
     }
-    lines.add(
+    if (!hasLightingData) {
+      lines.add(
+        'This comparison shows reported hazards only. No reports does not mean a route is safe.',
+      );
+    } else {
+      lines.add(
         'Score = ${(RouteSafetyScorer.hazardShare * 100).round()}% hazards ($hazardScore) + '
-        '${((1 - RouteSafetyScorer.hazardShare) * 100).round()}% lighting ($lightingScore).');
+        '${((1 - RouteSafetyScorer.hazardShare) * 100).round()}% lighting ($lightingScore).',
+      );
+    }
     return lines;
   }
 }
@@ -176,7 +196,13 @@ class RouteSafetyScorer {
     for (final h in hazards) {
       final d = _distanceToRoute(h, route);
       if (d <= hazardBufferM) {
-        nearby.add(NearbyHazard(report: h, distanceM: d, weight: hazardWeight(h, now: now)));
+        nearby.add(
+          NearbyHazard(
+            report: h,
+            distanceM: d,
+            weight: hazardWeight(h, now: now),
+          ),
+        );
       }
     }
     nearby.sort((a, b) => b.weight.compareTo(a.weight));
@@ -185,7 +211,9 @@ class RouteSafetyScorer {
     final hazardScore = (100 - penalty * pointsPerHazard).round().clamp(0, 100);
     final lightingScore = lightingScoreFrom(lighting);
     final total =
-        (hazardShare * hazardScore + (1 - hazardShare) * lightingScore).round().clamp(0, 100);
+        (hazardShare * hazardScore + (1 - hazardShare) * lightingScore)
+            .round()
+            .clamp(0, 100);
 
     return RouteSafetyScore(
       score: total,
