@@ -44,6 +44,8 @@ dependencies:
   # Safe Route maps (Member 3) – OpenStreetMap tiles, no API key needed
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
+  # Google Map on the Safe Route tab (needs MAPS_API_KEY, see android/secrets.defaults.properties)
+  google_maps_flutter: ^2.12.0
 
   # Utilities
   shared_preferences: ^2.3.5
@@ -120,8 +122,8 @@ flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
 
 flutter_native_splash:
-    color: "#1A3A5C"
+    color: "#007FFF"
     image: assets/splash/splash_logo.png
     android_12:
       image: assets/splash/splash_logo.png
-      color: "#1A3A5C"
+      color: "#007FFF"

@@ -45,7 +45,7 @@ class AegisApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Aegis - Safe Walk',
     debugShowCheckedModeBanner: false,
-    theme: AegisTheme.dark(),
+    theme: AegisTheme.light(),
     home: SplashScreen(
       nextScreen: AuthGate(
         service: FirebaseAuthService(),
