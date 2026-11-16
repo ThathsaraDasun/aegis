@@ -122,11 +122,6 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email.trim());
-  }
-
-  @override
   Future<void> signOut() async {
     await LiveSharingService.stop();
     await _auth.signOut();
