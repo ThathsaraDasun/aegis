@@ -3,6 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../theme/aegis_theme.dart';
+
 LatLng? tripCoordinate(Map<String, double> value) {
   final lat = value['lat'], lng = value['lng'];
   if (lat == null ||
@@ -23,6 +25,8 @@ class TripMap extends StatelessWidget {
   final LatLng? current;
   final LatLng? destination;
   final List<LatLng> trail;
+  /// Optional planned-route polyline (from route comparison), shown in sky blue.
+  final List<LatLng> plannedRoute;
   final MapController? controller;
   final ValueChanged<LatLng>? onTap;
   final VoidCallback? onReady;
@@ -33,6 +37,7 @@ class TripMap extends StatelessWidget {
     this.current,
     this.destination,
     this.trail = const [],
+    this.plannedRoute = const [],
     this.controller,
     this.onTap,
     this.onReady,
@@ -65,7 +70,18 @@ class TripMap extends StatelessWidget {
             if (trail.length > 1)
               PolylineLayer(
                 polylines: [
-                  Polyline(points: trail, color: Colors.blue, strokeWidth: 5),
+                  Polyline(points: trail, color: AegisColors.primary, strokeWidth: 5),
+                ],
+              ),
+            // Planned route from route comparison (shown first so live trail sits on top).
+            if (plannedRoute.length > 1)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: plannedRoute,
+                    color: AegisColors.accent.withValues(alpha: 0.8), // sky blue planned route
+                    strokeWidth: 6,
+                  ),
                 ],
               ),
             MarkerLayer(
@@ -79,7 +95,7 @@ class TripMap extends StatelessWidget {
                       message: 'Current position',
                       child: Icon(
                         Icons.my_location,
-                        color: Colors.blue,
+                        color: AegisColors.primary,
                         size: 30,
                       ),
                     ),
@@ -93,7 +109,7 @@ class TripMap extends StatelessWidget {
                       message: 'Destination',
                       child: Icon(
                         Icons.location_pin,
-                        color: Colors.red,
+                        color: AegisColors.danger,
                         size: 40,
                       ),
                     ),

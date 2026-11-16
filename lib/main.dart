@@ -46,7 +46,7 @@ class AegisApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Aegis - Safe Walk',
     debugShowCheckedModeBanner: false,
-    theme: AegisTheme.dark(),
+    theme: AegisTheme.light(),
     home: SplashScreen(
       nextScreen: AuthGate(
         service: FirebaseAuthService(),
@@ -80,6 +80,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       surfaceTintColor: Colors.transparent,
       title: const Text('Aegis Safe Walk'),
       actions: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+          child: FilledButton.icon(
+            key: const Key('appbar-real-sos'),
+            onPressed: () => SafetyScope.of(context).manualSos(),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              minimumSize: const Size(0, 36),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              elevation: 2,
+            ),
+            icon: const Icon(Icons.sos, size: 20, color: Colors.white),
+            label: const Text(
+              'Real SOS',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 0.5,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
         IconButton(
           tooltip: 'Compass',
           icon: const Icon(Icons.explore_outlined),
