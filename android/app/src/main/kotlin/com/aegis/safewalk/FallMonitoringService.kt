@@ -56,6 +56,8 @@ class FallMonitoringService : Service(), SensorEventListener, LocationListener {
     private var eventLocation: Location? = null
     private var eventTime = 0L
     private var locationEnabled = false
+    private var preparingLink = false
+    private var liveUrl: String? = null
     private val locations by lazy { getSystemService(LOCATION_SERVICE) as LocationManager }
     private fun now() = SystemClock.elapsedRealtime()
 
@@ -134,7 +136,7 @@ class FallMonitoringService : Service(), SensorEventListener, LocationListener {
                     }
                 } else postAlert("Possible fall. Are you OK? ${remaining()} seconds to cancel.")
             }
-            if (phase == "sms_sending") {
+            if (phase == "sms_sending" && !preparingLink) {
                 autoResult = AutomaticSms.status(this@FallMonitoringService, eventId)
                 if (autoResult["state"] != "pending" || now() - smsStartedAt >= 20000) {
                     phase = "sms_complete"
@@ -150,7 +152,8 @@ class FallMonitoringService : Service(), SensorEventListener, LocationListener {
         "active" to active, "phase" to phase, "remaining" to remaining(),
         "demo" to demo, "eventId" to eventId, "error" to (failure ?: ""),
         "sms" to autoResult, "uid" to eventOwner, "time" to eventTime,
-        "lat" to (eventLocation?.latitude ?: ""), "lng" to (eventLocation?.longitude ?: "")
+        "lat" to (eventLocation?.latitude ?: ""), "lng" to (eventLocation?.longitude ?: ""),
+        "liveUrl" to (liveUrl ?: "")
     )
     private fun remaining() = ceil((deadline - now()).coerceAtLeast(0).toDouble() / 1000).toInt()
     fun claim(): Boolean {
@@ -171,12 +174,21 @@ class FallMonitoringService : Service(), SensorEventListener, LocationListener {
         val locationText = eventLocation?.let { "Location (recent GPS fix): https://maps.google.com/?q=${it.latitude},${it.longitude}" }
             ?: "Current location unavailable. Please call me immediately."
         val message = "SAFE WALK ALERT\nPossible fall detected; countdown was not cancelled.\nUser: ${AutomaticSms.name}\n$locationText"
-        try { autoResult = AutomaticSms.send(this, eventId, eventOwner, AutomaticSms.phones, message) }
-        catch (_: Exception) { autoResult = mapOf("state" to "uncertain", "message" to "SMS result unknown. Check Messages and contact your guardian directly.", "count" to 0) }
-        if (autoResult["state"] == "blocked" || autoResult["state"] == "uncertain") {
-            phase = "sms_complete"
-            postAlert(autoResult["message"].toString())
-        } else postAlert("Sending guardian SMS. Delivery is not yet confirmed.")
+        preparingLink = true
+        postAlert("Preparing guardian SMS and location link.")
+        SosLocationService.begin(this, eventId, eventLocation) { url ->
+            if (current !== this || !active || phase != "sms_sending") return@begin
+            preparingLink = false
+            liveUrl = url
+            smsStartedAt = now()
+            val fullMessage = message + (url?.let { "\nLive location (private, up to 1 hour): $it\nDo not forward. Check the update time." } ?: "")
+            try { autoResult = AutomaticSms.send(this, eventId, eventOwner, AutomaticSms.phones, fullMessage) }
+            catch (_: Exception) { autoResult = mapOf("state" to "uncertain", "message" to "SMS result unknown. Check Messages and contact your guardian directly.", "count" to 0) }
+            if (autoResult["state"] == "blocked" || autoResult["state"] == "uncertain") {
+                phase = "sms_complete"
+                postAlert(autoResult["message"].toString())
+            } else postAlert("Sending guardian SMS. Delivery is not yet confirmed.")
+        }
     }
     override fun onLocationChanged(location: Location) { latestLocation = location }
     override fun onProviderEnabled(provider: String) {}

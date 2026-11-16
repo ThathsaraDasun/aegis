@@ -44,6 +44,42 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
+    // A random 256-bit document ID is the bearer capability. Never allow listing.
+    // Only minimal position data belongs here, never medical/contact/profile data.
+    match /live_shares/{token} {
+      function owner() {
+        return request.auth != null && resource.data.ownerUid == request.auth.uid;
+      }
+      function validPosition(d) {
+        return (d.lat == null && d.lng == null && d.accuracy == null && d.fixAt == null)
+          || (d.lat is number && d.lat >= -90 && d.lat <= 90
+            && d.lng is number && d.lng >= -180 && d.lng <= 180
+            && d.accuracy is number && d.accuracy >= 0 && d.accuracy <= 100
+            && d.fixAt is timestamp && d.fixAt <= request.time + duration.value(1, 'm'));
+      }
+      allow get: if resource.data.active == true && request.time < resource.data.expiresAt;
+      allow list: if false;
+      allow create: if request.auth != null && token.matches('^[a-f0-9]{64}$')
+        && request.resource.data.keys().hasAll(['ownerUid', 'active', 'createdAt', 'expiresAt', 'updatedAt', 'lat', 'lng', 'accuracy', 'fixAt'])
+        && request.resource.data.keys().hasOnly(['ownerUid', 'active', 'createdAt', 'expiresAt', 'updatedAt', 'lat', 'lng', 'accuracy', 'fixAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.active == true
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(1, 'h')
+        && validPosition(request.resource.data);
+      // Revocation cannot be reversed and the expiry cannot be extended.
+      allow update: if owner() && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+          && request.resource.data.active == false)
+        || (resource.data.active == true && request.time < resource.data.expiresAt
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lat', 'lng', 'accuracy', 'fixAt', 'updatedAt'])
+          && request.resource.data.updatedAt == request.time && validPosition(request.resource.data)));
+      allow delete: if owner();
+    }
+
     // Hazard reports collection:
     // - read: any signed-in user
     // - create: signed-in user with valid category and integer confirmCount

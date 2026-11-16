@@ -46,6 +46,8 @@ android {
     }
 
     dependencies {
+        implementation("com.google.firebase:firebase-auth:23.2.1")
+        implementation("com.google.firebase:firebase-firestore:25.1.4")
         coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     }
 

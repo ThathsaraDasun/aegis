@@ -19,6 +19,24 @@ class MainActivity: FlutterActivity() {
         // A new Flutter engine starts with opt-in off; do not retain old native recipients.
         stopService(Intent(this, FallMonitoringService::class.java))
         AutomaticSms.clear()
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "aegis/live_sharing").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> {
+                    val lat = call.argument<Double>("lat")
+                    val lng = call.argument<Double>("lng")
+                    val fixTime = call.argument<Number>("fixTime")?.toLong()
+                    val fixAccuracy = call.argument<Double>("accuracy")
+                    val age = if (fixTime != null) System.currentTimeMillis() - fixTime else Long.MAX_VALUE
+                    val fix = if (lat != null && lng != null && fixAccuracy != null && age in 0..120000) android.location.Location("sos").apply {
+                        latitude = lat; longitude = lng; accuracy = fixAccuracy.toFloat()
+                        time = fixTime!!; elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos() - age * 1000000
+                    } else null
+                    SosLocationService.begin(this, call.argument<String>("alertId") ?: "", fix) { result.success(it) }
+                }
+                "stop" -> SosLocationService.stopSharing(this) { result.success(it) }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "aegis/fall_monitor").setMethodCallHandler { call, result ->
             when (call.method) {
                 "smsPermission" -> {
@@ -72,14 +90,20 @@ class MainActivity: FlutterActivity() {
                         val intent = Intent(this, FallMonitoringService::class.java).setAction("start")
                             .putExtra("demo", call.argument<Boolean>("demo") ?: false)
                         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+                        if (AutomaticSms.enabled && call.argument<Boolean>("demo") != true) SosLocationService.arm(this)
                         Handler(Looper.getMainLooper()).postDelayed({ result.success(true) }, 250)
                     } catch (e: Exception) { result.error("start_failed", "Android could not start fall protection.", null) }
                 }
                 "state" -> result.success(FallMonitoringService.current?.state() ?: mapOf("active" to false, "phase" to "stopped"))
                 "claim" -> result.success(FallMonitoringService.current?.claim() ?: false)
-                "stop" -> { stopService(Intent(this, FallMonitoringService::class.java)); result.success(null) }
+                "stop" -> { stopService(Intent(this, FallMonitoringService::class.java)); SosLocationService.disarm(); result.success(null) }
                 "cancel" -> { FallMonitoringService.current?.cancelFall(); result.success(null) }
-                "demo" -> { FallMonitoringService.current?.setDemo(call.argument<Boolean>("demo") ?: false); result.success(null) }
+                "demo" -> {
+                    val demo = call.argument<Boolean>("demo") ?: false
+                    FallMonitoringService.current?.setDemo(demo)
+                    if (!demo && AutomaticSms.enabled) SosLocationService.arm(this) else SosLocationService.disarm()
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

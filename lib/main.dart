@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'screens/auth/auth_gate.dart';
@@ -139,7 +138,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           icon: const Icon(Icons.logout),
           onPressed: () async {
             try {
-              await FirebaseAuth.instance.signOut();
+              await FirebaseAuthService().signOut();
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(
