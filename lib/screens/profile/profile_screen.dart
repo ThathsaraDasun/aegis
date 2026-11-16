@@ -1,9 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
-import '../../services/seed_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/aegis_theme.dart';
 import 'edit_profile_screen.dart';
@@ -21,13 +19,8 @@ class ProfileScreen extends StatelessWidget {
   Color _getAvatarColor(String name) {
     final int hash = name.hashCode;
     final List<Color> colors = [
-      Colors.blueAccent,
-      Colors.orangeAccent,
-      Colors.greenAccent,
-      Colors.purpleAccent,
-      Colors.redAccent,
-      Colors.tealAccent,
-      Colors.indigoAccent,
+      AegisColors.primary,
+      AegisColors.secondary,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -281,52 +274,6 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
-          if (kDebugMode) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  try {
-                    await SeedService.instance.seedDemoData();
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Demo data successfully seeded to Firestore!', style: GoogleFonts.inter()),
-                          backgroundColor: AegisColors.tertiary,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to seed demo data: $e', style: GoogleFonts.inter()),
-                          backgroundColor: AegisColors.secondary,
-                        ),
-                      );
-                    }
-                  }
-                },
-                icon: const Icon(Icons.dataset_linked_outlined, color: AegisColors.tertiary),
-                label: Text(
-                  'Seed Demo Data (Debug)',
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AegisColors.tertiary,
-                  ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AegisColors.tertiary, width: 1.5),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

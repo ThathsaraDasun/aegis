@@ -21,8 +21,14 @@ class StartTripScreen extends StatefulWidget {
   final String? Function()? currentUserId;
   final Widget Function(String)? liveTripBuilder;
   final TileProvider? tileProvider;
-  final LatLng? initialDestination;
-  final String? initialDestinationName;
+  
+  /// Pre-selected destination from the Route Comparison screen (Priority 4).
+  final LatLng? presetDestination;
+  /// Human-readable name for [presetDestination], e.g. from Nominatim search.
+  final String? presetDestinationName;
+  /// Planned route polyline to overlay on the live map.
+  final List<LatLng>? presetRoutePoints;
+
   const StartTripScreen({
     super.key,
     this.store,
@@ -31,9 +37,11 @@ class StartTripScreen extends StatefulWidget {
     this.currentUserId,
     this.liveTripBuilder,
     this.tileProvider,
-    this.initialDestination,
-    this.initialDestinationName,
+    this.presetDestination,
+    this.presetDestinationName,
+    this.presetRoutePoints,
   });
+
   @override
   State<StartTripScreen> createState() => _StartTripScreenState();
 }
@@ -49,6 +57,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
   String? _error;
   final _mapController = MapController();
   String? _destinationName;
+  List<LatLng> _plannedRoutePoints = const [];
 
   @override
   void dispose() {
@@ -78,9 +87,11 @@ class _StartTripScreenState extends State<StartTripScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialDestination != null) {
-      _destination = widget.initialDestination;
-      _destinationName = widget.initialDestinationName;
+    // Apply preset destination from route comparison (Priority 4).
+    if (widget.presetDestination != null) {
+      _destination = widget.presetDestination;
+      _destinationName = widget.presetDestinationName;
+      _plannedRoutePoints = widget.presetRoutePoints ?? const [];
     }
     _locate();
   }

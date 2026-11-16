@@ -4,12 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/hazard_report_model.dart';
+import '../../services/destination_search_service.dart';
 import '../../services/route/geo_utils.dart';
 import '../../services/route/position_helper.dart';
 import '../../services/route/route_planner_service.dart';
 import '../../services/route_safety_service.dart';
 import '../../theme/aegis_theme.dart';
 import '../../widgets/aegis_empty_state.dart';
+import '../trip/destination_search_sheet.dart';
 import '../trip/start_trip_screen.dart';
 import 'nearby_hazards_screen.dart';
 import 'report_hazard_screen.dart';
@@ -46,6 +48,7 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
   bool _gpsLive = false;
   String? _gpsReason;
   LatLng? _destination;
+  String? _destinationName;
 
   List<CandidateRoute> _routes = const [];
   List<RouteSafetyScore> _scores = const [];
@@ -75,14 +78,34 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     if (_destination != null) _compute();
   }
 
-  void _setDestination(LatLng point) {
-    setState(() => _destination = point);
+  void _setDestination(LatLng point, {String? name}) {
+    setState(() {
+      _destination = point;
+      _destinationName = name;
+    });
     _compute();
   }
 
   void _useDemoDestination() {
     final origin = _origin ?? PositionHelper.fallback;
-    _setDestination(GeoUtils.offset(origin, northM: 650, eastM: 700));
+    _setDestination(
+      GeoUtils.offset(origin, northM: 650, eastM: 700),
+      name: 'Demo Destination (~1 km)',
+    );
+  }
+
+  Future<void> _searchDestination() async {
+    final place = await showModalBottomSheet<DestinationPlace>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const FractionallySizedBox(
+        heightFactor: 0.85,
+        child: DestinationSearchSheet(),
+      ),
+    );
+    if (!mounted || place == null) return;
+    _setDestination(place.position, name: place.name);
   }
 
   Future<void> _compute({bool demo = false}) async {
@@ -141,16 +164,25 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
     }
   }
 
+  void _moveCamera(LatLng point, double zoom) {
+    try {
+      _map.move(point, zoom);
+    } catch (_) {
+      // Map not ready yet.
+    }
+  }
+
   void _reset() {
     _requestId++;
     setState(() {
       _destination = null;
+      _destinationName = null;
       _routes = const [];
       _scores = const [];
       _error = null;
       _loading = false;
     });
-    if (_origin != null) _map.move(_origin!, 15);
+    if (_origin != null) _moveCamera(_origin!, 16);
   }
 
   void _choose() {
@@ -161,12 +193,13 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       widget.onRouteChosen!(route, score);
       return;
     }
-    final dest = route.points.isNotEmpty ? route.points.last : _destination;
+    // Navigate to StartTripScreen with the chosen destination and route pre-filled.
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StartTripScreen(
-          initialDestination: dest,
-          initialDestinationName: '${route.label} (${route.durationMin} min walk)',
+          presetDestination: _destination!,
+          presetDestinationName: _destinationName,
+          presetRoutePoints: route.points,
         ),
       ),
     );
@@ -182,6 +215,11 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       appBar: AppBar(
         title: const Text('Safe Route'),
         actions: [
+          IconButton(
+            tooltip: 'Search destination',
+            icon: const Icon(Icons.search),
+            onPressed: _searchDestination,
+          ),
           IconButton(
             tooltip: 'Nearby hazards',
             icon: const Icon(Icons.map_outlined),
@@ -296,10 +334,12 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       icon = Icons.gps_off;
       color = AegisColors.warning;
     } else if (_destination == null) {
-      text = 'Tap the map where you want to walk to';
+      text = 'Tap the map or tap Search to pick a destination';
       icon = Icons.touch_app_outlined;
     } else {
-      text = 'Tap anywhere to change destination';
+      text = _destinationName != null
+          ? 'Destination: $_destinationName'
+          : 'Tap anywhere to change destination';
       icon = Icons.flag_outlined;
     }
     return GestureDetector(
@@ -319,6 +359,8 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
             const SizedBox(width: AegisSpacing.sm),
             Expanded(
               child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(fontSize: 12, color: AegisColors.textPrimary)),
             ),
           ],
@@ -333,6 +375,12 @@ class _RouteComparisonScreenState extends State<RouteComparisonScreen> {
       child = ListView(
         padding: const EdgeInsets.all(AegisSpacing.lg),
         children: [
+          OutlinedButton.icon(
+            onPressed: _searchDestination,
+            icon: const Icon(Icons.search),
+            label: const Text('Search for a place or address'),
+          ),
+          const SizedBox(height: AegisSpacing.md),
           AegisEmptyState(
             icon: Icons.alt_route,
             iconColor: AegisColors.secondary,

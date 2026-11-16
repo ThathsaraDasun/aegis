@@ -12,7 +12,13 @@ import 'trip_map.dart';
 /// Member 2 (Location & Maps Lead): Live map tracking with real-time position, markers, and polylines.
 class LiveMapScreen extends StatefulWidget {
   final String tripId;
-  const LiveMapScreen({super.key, required this.tripId});
+  /// Planned route points from route comparison (may be empty).
+  final List<LatLng> plannedRoutePoints;
+  const LiveMapScreen({
+    super.key,
+    required this.tripId,
+    this.plannedRoutePoints = const [],
+  });
   @override
   State<LiveMapScreen> createState() => _LiveMapScreenState();
 }
@@ -144,6 +150,10 @@ class _LiveMapScreenState extends State<LiveMapScreen>
             builder: (_) => TripSummaryScreen(
               tripId: widget.tripId,
               arrivedSafely: arrivedSafely,
+              duration: _trip == null
+                  ? null
+                  : DateTime.now().difference(_trip!.startedAt),
+              destinationName: _trip?.destinationName,
             ),
           ),
         );
@@ -202,6 +212,7 @@ class _LiveMapScreenState extends State<LiveMapScreen>
                       ? null
                       : tripCoordinate(_trip!.destination),
                   trail: List.of(_trail),
+                  plannedRoute: widget.plannedRoutePoints,
                   controller: _map,
                   onReady: () => _ready = true,
                 ),
