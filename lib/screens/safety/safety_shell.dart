@@ -25,7 +25,13 @@ class SafetyScope extends InheritedNotifier<SafetyController> {
 class SafetyShell extends StatefulWidget {
   final WidgetBuilder homeBuilder;
   final SafetyController? controller;
-  const SafetyShell({super.key, required this.homeBuilder, this.controller});
+  final bool showFloatingSos;
+  const SafetyShell({
+    super.key,
+    required this.homeBuilder,
+    this.controller,
+    this.showFloatingSos = false,
+  });
   @override
   State<SafetyShell> createState() => _SafetyShellState();
 }
@@ -87,7 +93,7 @@ class _SafetyShellState extends State<SafetyShell> with WidgetsBindingObserver {
               onGenerateRoute: (_) =>
                   MaterialPageRoute(builder: widget.homeBuilder),
             ),
-            if (controller.phase == SafetyPhase.idle)
+            if (widget.showFloatingSos && controller.phase == SafetyPhase.idle)
               Positioned(
                 right: 16,
                 bottom: 88 + MediaQuery.paddingOf(context).bottom,
@@ -474,6 +480,23 @@ class SafetyDashboard extends StatelessWidget {
             ).push(MaterialPageRoute(builder: (_) => const StartTripScreen())),
             icon: const Icon(Icons.directions_walk),
             label: const Text('Start live trip'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: c.manualSos,
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFD32F2F),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          icon: const Icon(Icons.sos, size: 24),
+          label: const Text(
+            'Trigger Real SOS Now',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
         const SizedBox(height: 16),

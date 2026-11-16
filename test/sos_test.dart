@@ -388,6 +388,7 @@ void main() {
         MaterialApp(
           home: SafetyShell(
             controller: c,
+            showFloatingSos: true,
             homeBuilder: (context) => Scaffold(
               body: TextButton(
                 onPressed: () => Navigator.of(context).push(
