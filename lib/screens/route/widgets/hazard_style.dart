@@ -15,7 +15,7 @@ class HazardStyle {
       case 'poor_lighting':
         return const HazardStyle(Icons.lightbulb_outline, AegisColors.warning);
       case 'unsafe_area':
-        return const HazardStyle(Icons.warning_amber_rounded, AegisColors.primary);
+        return const HazardStyle(Icons.warning_amber_rounded, AegisColors.danger);
       case 'past_incident':
         return const HazardStyle(Icons.report_gmailerrorred, AegisColors.danger);
       case 'no_sidewalk':

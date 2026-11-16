@@ -29,13 +29,8 @@ class ContactCard extends StatelessWidget {
   Color _getAvatarColor(String name) {
     final int hash = name.hashCode;
     final List<Color> colors = [
-      Colors.blueAccent,
-      Colors.orangeAccent,
-      Colors.greenAccent,
-      Colors.purpleAccent,
-      Colors.redAccent,
-      Colors.tealAccent,
-      Colors.indigoAccent,
+      AegisColors.primary,
+      AegisColors.secondary,
     ];
     return colors[hash.abs() % colors.length];
   }
