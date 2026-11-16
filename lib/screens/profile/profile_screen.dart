@@ -5,6 +5,7 @@ import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/profile_photo_avatar.dart';
+import '../../widgets/sign_out_confirmation.dart';
 import 'edit_profile_screen.dart';
 
 /// Toggle this to [true] to test the UI with hardcoded data without Firestore.
@@ -269,6 +270,7 @@ class ProfileScreen extends StatelessWidget {
   );
 
   Future<void> _handleSignOut(BuildContext context) async {
+    if (!await confirmSignOut(context) || !context.mounted) return;
     try {
       await FirebaseAuthService().signOut();
     } catch (e) {

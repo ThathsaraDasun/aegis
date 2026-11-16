@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/sign_out_confirmation.dart';
 import 'login_screen.dart';
 
 /// Owns the authenticated navigator so signing out also removes pushed pages.
@@ -94,6 +95,7 @@ class _ProfileGateState extends State<_ProfileGate> {
   }
 
   Future<void> _signOut() async {
+    if (!await confirmSignOut(context) || !mounted) return;
     try {
       await widget.service.signOut();
     } catch (e) {

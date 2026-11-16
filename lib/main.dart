@@ -13,6 +13,7 @@ import 'services/auth_service.dart';
 import 'services/alert_service.dart';
 import 'theme/aegis_theme.dart';
 import 'widgets/aegis_nav_bar.dart';
+import 'widgets/sign_out_confirmation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -137,6 +138,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           tooltip: 'Sign out',
           icon: const Icon(Icons.logout),
           onPressed: () async {
+            if (!await confirmSignOut(context) || !context.mounted) return;
             try {
               await FirebaseAuthService().signOut();
             } catch (e) {
