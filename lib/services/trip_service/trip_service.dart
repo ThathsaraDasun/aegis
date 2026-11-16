@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/models/lat_lng.dart';
 import '../../models/trip_model.dart';
 import '../firestore_service.dart';
+import '../share_token.dart';
 
 /// Service responsible for Live Trip Sharing, GPS location streaming,
 /// ETA calculations, overdue tracking, silent check-in prompts, trip lifecycle, and FCM notifications.
@@ -45,6 +46,7 @@ class TripService {
     String routeChosen = 'default_route',
   }) async {
     final tripId = _uuid.v4();
+    final shareToken = ShareToken.generate();
     final startedAt = DateTime.now();
 
     final trip = TripModel(
@@ -55,16 +57,17 @@ class TripService {
       currentLocation: startLocation,
       destination: destination,
       startedAt: startedAt,
+      shareToken: shareToken,
     );
 
-    // 1. Create Firestore trip document via FirestoreService
+    // 1. Create the trip and its guardian mirror via FirestoreService
     await _firestoreService.createTrip(trip);
 
     // 2. Send FCM push notifications to trusted contacts
     await _sendTripStartNotifications(tripId, userId, destination, contactIds);
 
     // 3. Start location tracking
-    _startLocationTracking(tripId, destination);
+    _startLocationTracking(trip, destination);
 
     return tripId;
   }
@@ -102,13 +105,13 @@ class TripService {
   }
 
   /// Ends the trip: stops location streaming and updates status to "completed" via [FirestoreService].
-  Future<void> endTrip(String tripId) async {
+  Future<void> endTrip(String tripId, {String? shareToken}) async {
     // 1. Stop location tracking
     await _positionSubscription?.cancel();
     _positionSubscription = null;
 
     // 2. Mark trip as completed in Firestore via FirestoreService
-    await _firestoreService.endTrip(tripId, status: TripStatus.completed);
+    await _firestoreService.endTrip(tripId, status: TripStatus.completed, shareToken: shareToken);
 
     // 3. Clean up stream controllers
     _closeControllers(tripId);
@@ -121,7 +124,8 @@ class TripService {
 
   // --- Internal Helper Methods ---
 
-  void _startLocationTracking(String tripId, Map<String, double> destination) {
+  void _startLocationTracking(TripModel trip, Map<String, double> destination) {
+    final tripId = trip.tripId;
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 2,
@@ -135,7 +139,7 @@ class TripService {
         final currentLatLng = LatLng(latitude: position.latitude, longitude: position.longitude);
 
         // Update live location via FirestoreService
-        await _firestoreService.updateTripLocation(tripId, position.latitude, position.longitude);
+        await _firestoreService.updateTripLocation(tripId, position.latitude, position.longitude, shareToken: trip.shareToken);
 
         // Emit to local stream controller
         if (_locationControllers.containsKey(tripId) && !(_locationControllers[tripId]!.isClosed)) {

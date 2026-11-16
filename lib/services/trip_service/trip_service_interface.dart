@@ -26,7 +26,7 @@ abstract class ITripService {
   Stream<bool> silentCheckInPromptStream(String tripId, {Duration threshold});
 
   /// Ends the trip, stops streaming, and saves trip summary.
-  Future<void> endTrip(String tripId);
+  Future<void> endTrip(String tripId, {String? shareToken});
 
   /// Retrieves past trip history summaries for a given user ID.
   Future<List<TripModel>> getTripHistory(String userId);
@@ -73,7 +73,7 @@ class MockTripService implements ITripService {
   }
 
   @override
-  Future<void> endTrip(String tripId) async {
+  Future<void> endTrip(String tripId, {String? shareToken}) async {
     await Future.delayed(const Duration(milliseconds: 300));
   }
 

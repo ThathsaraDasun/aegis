@@ -95,7 +95,7 @@ class _LiveMapScreenState extends State<LiveMapScreen>
         if (!_writing) {
           _writing = true;
           _pendingWrite = _store
-              .updateTripLocation(widget.tripId, p.latitude, p.longitude)
+              .updateTripLocation(widget.tripId, p.latitude, p.longitude, shareToken: _trip?.shareToken)
               .timeout(const Duration(seconds: 10))
               .catchError((Object e) {
                 _showError('Location could not be saved: $e');
@@ -139,6 +139,7 @@ class _LiveMapScreenState extends State<LiveMapScreen>
           .endTrip(
             widget.tripId,
             status: arrivedSafely ? TripStatus.completed : TripStatus.alerted,
+            shareToken: _trip?.shareToken,
           )
           .timeout(const Duration(seconds: 15));
       _ended = true;
