@@ -74,6 +74,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      backgroundColor: const Color(0xFF007FFF),
+      foregroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
       title: const Text('Aegis Safe Walk'),
       actions: [
         Padding(
