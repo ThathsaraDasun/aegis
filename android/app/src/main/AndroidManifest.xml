@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application
         android:label="aegis"
@@ -16,10 +19,11 @@
         android:icon="@mipmap/ic_launcher">
         <service android:name=".FallMonitoringService"
             android:exported="false" android:stopWithTask="true"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|location">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled accelerometer and gyroscope fall detection with cancellable safety countdown" />
         </service>
+        <receiver android:name=".SmsStatusReceiver" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

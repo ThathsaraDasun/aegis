@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/safety/background_monitor.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/alert_service.dart';
+import '../../services/automatic_sms_service.dart';
 import '../trip/start_trip_screen.dart';
 import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
@@ -152,7 +153,9 @@ class SafetyEventScreen extends StatelessWidget {
                     Text(
                       c.eventIsDemo
                           ? 'Practice only. No messages or database alerts will be created.'
-                          : 'When time runs out, open Aegis to prepare the alert. If Aegis is already open, preparation starts immediately. Someone must tap Send; delivery is not automatic.',
+                          : c.automaticSms
+                          ? 'If you do not cancel, Aegis will attempt to send SMS to your guardians using your SIM. SMS charges may apply.'
+                          : 'When time runs out, open Aegis to prepare the alert. Someone must tap Send; automatic SMS is off.',
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
@@ -198,7 +201,11 @@ class SafetyEventScreen extends StatelessWidget {
                     ),
                   ] else ...[
                     Text(
-                      c.eventIsDemo ? 'Demo completed' : 'Alert recorded',
+                      c.eventIsDemo
+                          ? 'Demo completed'
+                          : c.result!.recorded
+                          ? 'Alert recorded'
+                          : 'Guardian SMS result',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 16),
@@ -208,16 +215,69 @@ class SafetyEventScreen extends StatelessWidget {
                       )
                     else ...[
                       Text(
-                        c.result!.smsOpened
-                            ? 'SMS option opened. Choose Messages or Messaging, not WhatsApp, in the chooser. Tap Send yourself. Delivery has not been confirmed.'
-                            : c.result!.dialerOpened
-                            ? 'Phone dialer opened. You must start the call yourself.'
-                            : c.result!.contactCount == 0
-                            ? 'No usable contacts were found. Nobody was contacted. Add a guardian before your next walk.'
-                            : 'SMS and phone apps could not be opened. Contact your guardian directly.',
+                        c.result!.automaticSmsMessage ??
+                            (c.result!.smsOpened
+                                ? 'SMS option opened. Choose Messages or Messaging, not WhatsApp, in the chooser. Tap Send yourself. Delivery has not been confirmed.'
+                                : c.result!.dialerOpened
+                                ? 'Phone dialer opened. You must start the call yourself.'
+                                : c.result!.contactCount == 0
+                                ? 'No usable contacts were found. Nobody was contacted. Add a guardian before your next walk.'
+                                : 'SMS and phone apps could not be opened. Contact your guardian directly.'),
                       ),
                       const SizedBox(height: 12),
                       SelectableText('Alert ID: ${c.result!.alertId}'),
+                      if (c.result!.automaticSmsMessage != null &&
+                          c.result!.manualSmsUri != null)
+                        TextButton(
+                          onPressed: () async {
+                            final proceed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Open SMS manually?'),
+                                content: const Text(
+                                  'Check Messages first: an automatic SMS may already have been sent. Sending again can duplicate the alert. In the chooser, select Messages or Messaging, not WhatsApp.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Open Messages'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (proceed != true) return;
+                            try {
+                              final opened = await launchUrl(
+                                c.result!.manualSmsUri!,
+                                mode: LaunchMode.externalApplication,
+                              );
+                              if (!opened) {
+                                throw StateError('SMS app unavailable');
+                              }
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Could not open Messages. Contact your guardian directly.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          child: const Text('Open SMS manually'),
+                        ),
+                      if (!c.result!.recorded)
+                        const Text(
+                          'This background event could not be saved to Activity. The SMS result above is separate from the database record.',
+                        ),
                       if (c.result!.whatsAppLinks.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         const Text(
@@ -229,7 +289,7 @@ class SafetyEventScreen extends StatelessWidget {
                       const SizedBox(height: 12),
                       if (c.resolved)
                         const Text('Marked resolved in your activity log.')
-                      else
+                      else if (c.result!.recorded)
                         OutlinedButton(
                           onPressed: c.resolving ? null : c.resolve,
                           child: Text(
@@ -338,7 +398,9 @@ class SafetyDashboard extends StatelessWidget {
                       : 'Off',
                 ),
                 value: c.monitoring,
-                onChanged: c.changingMonitoring ? null : c.setMonitoring,
+                onChanged: c.changingMonitoring || c.changingSms
+                    ? null
+                    : c.setMonitoring,
               ),
               SwitchListTile(
                 title: const Text('Demo mode'),
@@ -346,8 +408,52 @@ class SafetyDashboard extends StatelessWidget {
                   'Lower shake threshold; automatic alerts are simulated. Real SOS stays real.',
                 ),
                 value: c.demo,
-                onChanged: c.changingMonitoring ? null : c.setDemo,
+                onChanged: c.changingMonitoring || c.changingSms
+                    ? null
+                    : c.setDemo,
               ),
+              if (AutomaticSmsService.supported)
+                SwitchListTile(
+                  title: const Text('Automatic guardian SMS'),
+                  subtitle: Text(
+                    c.changingSms
+                        ? 'Checking SMS setup…'
+                        : c.monitoring
+                        ? 'Stop monitoring before changing SMS settings.'
+                        : 'Uses your default SMS SIM. Charges may apply. Enable again after changing guardians or signing in again.',
+                  ),
+                  value: c.automaticSms,
+                  onChanged:
+                      c.monitoring || c.changingSms || c.changingMonitoring
+                      ? null
+                      : (value) async {
+                          if (value) {
+                            final agreed = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Enable automatic SMS?'),
+                                content: const Text(
+                                  'Real SOS and uncancelled real fall countdowns will send SMS to your saved guardians without another Send button, including while locked. Your name and available location are included. Your SIM must have service and SMS credit; long messages may cost more than one SMS. Select a default SMS SIM in Android Settings first. Demo countdowns never send. Only enable this with guardians who expect your alerts.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text('Enable automatic SMS'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (agreed != true) return;
+                          }
+                          await c.setAutomaticSms(value);
+                        },
+                ),
             ],
           ),
         ),
@@ -373,11 +479,11 @@ class SafetyDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'If a fall countdown ends while the phone is locked, a notification asks you to open Aegis. Nobody is contacted automatically yet. Background monitoring uses extra battery and may be stopped by Android battery controls.',
+          'With Automatic guardian SMS enabled, an uncancelled real fall countdown attempts SMS even while locked. Otherwise, open Aegis to send manually. Background monitoring uses extra battery and may be stopped by Android battery controls.',
         ),
         const SizedBox(height: 20),
         const Text(
-          'Real SOS saves an alert and opens an SMS composer or phone dialer. This version cannot send messages unattended.',
+          'Real SOS saves an alert. With Automatic guardian SMS enabled it attempts SIM SMS directly; otherwise it opens manual contact options. WhatsApp always needs you to tap Send.',
         ),
         const SizedBox(height: 16),
         OutlinedButton.icon(

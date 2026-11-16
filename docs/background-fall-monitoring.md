@@ -1,5 +1,7 @@
 # Android background fall monitoring
 
+Automatic SMS is now available as an explicit opt-in; see [automatic-sms.md](automatic-sms.md) for current delivery behaviour and acceptance checks. References below to manual-only delivery describe monitoring with Automatic guardian SMS off.
+
 Enable Fall monitoring while Aegis is open and allow notifications. Android now runs accelerometer/gyroscope detection and the 15-second countdown in a foreground service. A persistent notification has a Stop action. A possible fall posts an urgent notification with an I am OK — cancel action; tapping the notification opens Aegis. The service uses the existing impact/rotation/stillness thresholds, including the lower demo thresholds. It does not automatically enable protection at login.
 
 ## Important limits

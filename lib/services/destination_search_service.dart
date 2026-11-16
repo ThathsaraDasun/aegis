@@ -23,12 +23,14 @@ class DestinationSearchService {
 
   Future<List<DestinationPlace>> search(String input) async {
     final query = input.trim();
-    if (query.length < 3)
+    if (query.length < 3) {
       throw const FormatException('Enter at least 3 characters.');
+    }
     final key = query.toLowerCase();
     if (_cache.containsKey(key)) return _cache[key]!;
-    if (_busy)
+    if (_busy) {
       throw const FormatException('Please wait for the current search.');
+    }
     _busy = true;
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10);
@@ -36,8 +38,9 @@ class DestinationSearchService {
       final elapsed = _lastRequest == null
           ? 1100
           : DateTime.now().difference(_lastRequest!).inMilliseconds;
-      if (elapsed < 1100)
+      if (elapsed < 1100) {
         await Future<void>.delayed(Duration(milliseconds: 1100 - elapsed));
+      }
       _lastRequest = DateTime.now();
       final uri = Uri.parse(_endpoint).replace(
         queryParameters: {'q': query, 'format': 'jsonv2', 'limit': '5'},
@@ -60,10 +63,11 @@ class DestinationSearchService {
           );
         }
         final data = jsonDecode(await utf8.decoder.bind(response).join());
-        if (data is! List)
+        if (data is! List) {
           throw const FormatException(
             'Unexpected search response. Please retry.',
           );
+        }
         final results = <DestinationPlace>[];
         for (final item in data) {
           if (item is! Map) continue;
@@ -77,8 +81,9 @@ class DestinationSearchService {
               lat.abs() > 90 ||
               lon.abs() > 180 ||
               name is! String ||
-              name.isEmpty)
+              name.isEmpty) {
             continue;
+          }
           results.add(DestinationPlace(name, LatLng(lat, lon)));
         }
         return List<DestinationPlace>.unmodifiable(results);
