@@ -1,20 +1,20 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/models/lat_lng.dart';
 import '../../models/trip_model.dart';
+import '../alert_service.dart';
 import '../firestore_service.dart';
 
 /// Service responsible for Live Trip Sharing, GPS location streaming,
-/// ETA calculations, overdue tracking, silent check-in prompts, trip lifecycle, and FCM notifications.
+/// ETA calculations, overdue tracking, silent check-in prompts, trip lifecycle, and the
+/// trip-start guardian message.
 class TripService {
   final FirestoreService _firestoreService;
-  final FirebaseFirestore _firestore;
-  final FirebaseMessaging _messaging;
+  final AlertService _alertService;
   final Uuid _uuid;
+  final Map<String, Future<TripStartShare>> _tripStartShares = {};
 
   StreamSubscription<Position>? _positionSubscription;
   final Map<String, StreamController<LatLng>> _locationControllers = {};
@@ -24,19 +24,18 @@ class TripService {
 
   TripService({
     FirestoreService? firestoreService,
-    FirebaseFirestore? firestore,
-    FirebaseMessaging? messaging,
+    AlertService? alertService,
     Uuid? uuid,
   })  : _firestoreService = firestoreService ?? FirestoreService.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _messaging = messaging ?? FirebaseMessaging.instance,
+        _alertService = alertService ?? AlertService.instance,
         _uuid = uuid ?? const Uuid();
 
   /// Starts a live trip.
   /// 
   /// Creates a Firestore document at `/trips/{tripId}` using [FirestoreService.createTrip].
   /// Begins streaming GPS location using [geolocator], updating currentLocation via [FirestoreService.updateTripLocation].
-  /// Sends FCM push notifications to trusted contacts.
+  /// Prepares the trip-start guardian message for the selected trusted
+  /// contacts ([contactIds]); see [tripStartShare].
   Future<String> startTrip({
     required String userId,
     required Map<String, double> startLocation,
@@ -60,14 +59,27 @@ class TripService {
     // 1. Create Firestore trip document via FirestoreService
     await _firestoreService.createTrip(trip);
 
-    // 2. Send FCM push notifications to trusted contacts
-    await _sendTripStartNotifications(tripId, userId, destination, contactIds);
+    // 2. Prepare the guardian message (sent only if automatic SMS is on)
+    _tripStartShares[tripId] = _alertService.prepareTripStartShare(
+      userId: userId,
+      contactIds: contactIds,
+      lat: startLocation['lat'] ?? 0.0,
+      lng: startLocation['lng'] ?? 0.0,
+      tripId: tripId,
+    )..ignore();
 
     // 3. Start location tracking
     _startLocationTracking(tripId, destination);
 
     return tripId;
   }
+
+  /// The trip-start guardian message for [tripId], or null if none was
+  /// prepared. Unless automatic SMS sent it, show its SMS/WhatsApp links so
+  /// the user can choose to notify their guardians. Errors (for example a
+  /// failed contacts read) surface when the future is awaited.
+  Future<TripStartShare>? tripStartShare(String tripId) =>
+      _tripStartShares[tripId];
 
   /// Streams the live location of an active trip (`Stream<LatLng>`) for UI map marker binding.
   Stream<LatLng> liveLocationStream(String tripId) {
@@ -193,43 +205,9 @@ class TripService {
     );
   }
 
-  Future<void> _sendTripStartNotifications(
-    String tripId,
-    String userId,
-    Map<String, double> destination,
-    List<String> contactIds,
-  ) async {
-    try {
-      await _messaging.requestPermission();
-    } catch (_) {}
-
-    for (String contactId in contactIds) {
-      try {
-        final userDoc = await _firestore.collection('users').doc(contactId).get();
-        final fcmToken = userDoc.data()?['fcmToken'] as String?;
-
-        if (fcmToken != null && fcmToken.isNotEmpty) {
-          await _firestore.collection('notifications').add({
-            'recipientId': contactId,
-            'fcmToken': fcmToken,
-            'title': 'Safe Walk: Trip Started',
-            'body': 'Your contact started a live safe walk. Track live here.',
-            'data': {
-              'type': 'tripStart',
-              'tripId': tripId,
-              'userId': userId,
-            },
-            'timestamp': FieldValue.serverTimestamp(),
-            'status': 'pending',
-          });
-        }
-      } catch (e) {
-        // Handle notification error
-      }
-    }
-  }
-
   void _closeControllers(String tripId) {
+    _tripStartShares.remove(tripId);
+
     _locationControllers[tripId]?.close();
     _locationControllers.remove(tripId);
 
