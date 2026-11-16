@@ -13,6 +13,7 @@ import 'screens/route/route_comparison_screen.dart';
 import 'services/auth_service.dart';
 import 'services/alert_service.dart';
 import 'theme/aegis_theme.dart';
+import 'widgets/aegis_nav_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,28 +109,42 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ],
     ),
     body: IndexedStack(index: _index, children: _screens),
-    bottomNavigationBar: BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
+    bottomNavigationBar: AegisNavBar(
       currentIndex: _index,
       onTap: (value) => setState(() => _index = value),
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.shield_outlined),
-          label: 'Safety',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.notifications_outlined),
+      centerItem: const AegisNavItem(
+        icon: Icons.shield_outlined,
+        activeIcon: Icons.shield,
+        label: 'Safety',
+        index: 0,
+      ),
+      leftItems: const [
+        AegisNavItem(
+          icon: Icons.notifications_outlined,
+          activeIcon: Icons.notifications,
           label: 'Activity',
+          index: 1,
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.people_outline),
+        AegisNavItem(
+          icon: Icons.people_outline,
+          activeIcon: Icons.people,
           label: 'Guardians',
+          index: 2,
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
+      ],
+      rightItems: const [
+        AegisNavItem(
+          icon: Icons.alt_route,
+          activeIcon: Icons.alt_route,
+          label: 'Routes',
+          index: 4,
+        ),
+        AegisNavItem(
+          icon: Icons.person_outline,
+          activeIcon: Icons.person,
           label: 'Profile',
+          index: 3,
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.alt_route), label: 'Routes'),
       ],
     ),
   );
