@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'live_sharing_service.dart';
+import 'package:flutter/services.dart';
 
 class AuthAccount {
   final String uid;
@@ -46,7 +48,10 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await LiveSharingService.stop();
+    await _auth.signOut();
+  }
 
   @override
   Future<bool> hasProfile(String uid) async {
@@ -69,6 +74,9 @@ class FirebaseAuthService implements AuthService {
 }
 
 String authErrorMessage(Object error) {
+  if (error is PlatformException && error.code == 'sharing_stop_pending') {
+    return error.message ?? 'Reconnect to finish stopping location sharing.';
+  }
   if (error is FirebaseException) {
     return switch (error.code) {
       'invalid-credential' ||

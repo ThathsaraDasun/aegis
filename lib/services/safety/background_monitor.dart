@@ -45,6 +45,9 @@ class BackgroundMonitor {
       dialerOpened: false,
       automaticSmsMessage: '${sms['message']}',
       recorded: recorded,
+      liveLocationUrl: (state['liveUrl'] as String?)?.isNotEmpty == true
+          ? state['liveUrl'] as String
+          : null,
     );
   }
 

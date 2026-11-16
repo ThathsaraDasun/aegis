@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
 import '../../services/seed_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/auth_service.dart';
 import '../../theme/aegis_theme.dart';
 import 'edit_profile_screen.dart';
 
@@ -369,12 +370,12 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _handleSignOut(BuildContext context) async {
     try {
-      await FirebaseAuth.instance.signOut();
+      await FirebaseAuthService().signOut();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error signing out: $e', style: GoogleFonts.inter()),
+            content: Text(authErrorMessage(e), style: GoogleFonts.inter()),
             backgroundColor: AegisColors.primaryContainer,
           ),
         );

@@ -4,6 +4,8 @@ import '../../services/safety/background_monitor.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/alert_service.dart';
 import '../../services/automatic_sms_service.dart';
+import '../../services/live_sharing_service.dart';
+import '../../services/auth_service.dart';
 import '../trip/start_trip_screen.dart';
 import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
@@ -293,15 +295,30 @@ class SafetyEventScreen extends StatelessWidget {
                           _WhatsAppButton(link: link),
                       ],
                       const SizedBox(height: 12),
+                      if (c.result!.liveLocationUrl != null && !c.resolved)
+                        const Text(
+                          'A private live-location link was included in the message. Anyone with it can view for up to one hour. '
+                          'Done leaves sharing running. Mark safe below or use Stop sharing in the phone notification to end it. '
+                          'GPS and internet are needed for updates; force-stopping Aegis stops updates.',
+                        ),
+                      if (c.result!.liveLocationUrl == null)
+                        const Text(
+                          'No live-location link was included. The message uses the location available when SOS started.',
+                        ),
                       if (c.resolved)
-                        const Text('Marked resolved in your activity log.')
-                      else if (c.result!.recorded)
+                        Text(
+                          c.result!.recorded
+                              ? 'Marked resolved. Location link stopped.'
+                              : 'Location link stopped.',
+                        )
+                      else if (c.result!.recorded ||
+                          c.result!.liveLocationUrl != null)
                         OutlinedButton(
                           onPressed: c.resolving ? null : c.resolve,
                           child: Text(
                             c.resolving
                                 ? 'Saving...'
-                                : 'I am safe - mark resolved',
+                                : 'I am safe - stop sharing',
                           ),
                         ),
                       const Text(
@@ -489,8 +506,28 @@ class SafetyDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         const Text(
-          'Real SOS saves an alert. With Automatic guardian SMS enabled it attempts SIM SMS directly; otherwise it opens manual contact options. WhatsApp always needs you to tap Send.',
+          'Real SOS saves an alert. With Automatic guardian SMS enabled it attempts SIM SMS directly; otherwise it opens manual contact options. WhatsApp always needs you to tap Send. When available, SOS includes a private live-location link for up to one hour. Anyone with that link can view. Stop it below, from the SOS result, or from the phone notification.',
         ),
+        if (LiveSharingService.supported)
+          OutlinedButton.icon(
+            icon: const Icon(Icons.location_disabled_outlined),
+            label: const Text('Stop SOS location sharing'),
+            onPressed: () async {
+              String message;
+              try {
+                await LiveSharingService.stop();
+                message =
+                    'SOS location sharing stopped. This does not send an all-clear message.';
+              } catch (e) {
+                message = authErrorMessage(e);
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              }
+            },
+          ),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: c.manualSos,

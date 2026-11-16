@@ -24,6 +24,8 @@
                 android:value="User-enabled accelerometer and gyroscope fall detection with cancellable safety countdown" />
         </service>
         <receiver android:name=".SmsStatusReceiver" android:exported="false" />
+        <service android:name=".SosLocationService" android:exported="false"
+            android:stopWithTask="false" android:foregroundServiceType="location" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

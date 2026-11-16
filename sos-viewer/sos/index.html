@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Aegis · SOS location</title>
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=">
+  <link rel="stylesheet" href="viewer.css">
+  <script defer src="vendor/leaflet/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="></script>
+  <script defer src="viewer.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="brand">AEGIS / SAFE WALK</span><h1>SOS location</h1>
+      <p>This private link shows the sender’s latest shared position. It does not contact emergency services.</p>
+    </header>
+    <section class="status" aria-live="polite"><h2 id="status">Checking the link…</h2><p id="detail">Keep this page open for updates.</p><p id="age"></p></section>
+    <div id="map" hidden aria-label="Map of the latest shared position"></div>
+    <p id="coordinates"></p>
+    <div class="actions"><button id="retry" type="button">Refresh location</button><button id="center" type="button" hidden>Centre map</button><a id="directions" hidden target="_blank" rel="noopener noreferrer">Open this position in maps</a></div>
+    <footer>Anyone holding this link can view until sharing stops or the link expires. Do not forward it. If the location is old or unavailable, call the sender directly. A moving map does not confirm that they are safe.</footer>
+  </main>
+</body>
+</html>

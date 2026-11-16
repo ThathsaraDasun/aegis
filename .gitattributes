@@ -1,0 +1,3 @@
+# Preserve vendor bytes: browser integrity hashes depend on exact line endings.
+sos-viewer/sos/vendor/leaflet/leaflet.css -text -whitespace
+sos-viewer/sos/vendor/leaflet/leaflet.js -text -whitespace

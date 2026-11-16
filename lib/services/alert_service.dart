@@ -8,6 +8,7 @@ import '../models/user_model.dart';
 import 'firestore_service.dart';
 import 'contacts_service.dart';
 import 'automatic_sms_service.dart';
+import 'live_sharing_service.dart';
 
 class GuardianWhatsAppLink {
   final String name;
@@ -36,6 +37,7 @@ class AlertTriggerResult {
   final String? automaticSmsMessage;
   final bool recorded;
   final Uri? manualSmsUri;
+  final String? liveLocationUrl;
   const AlertTriggerResult({
     required this.alertId,
     required this.contactCount,
@@ -45,6 +47,7 @@ class AlertTriggerResult {
     this.automaticSmsMessage,
     this.recorded = true,
     this.manualSmsUri,
+    this.liveLocationUrl,
   });
 }
 
@@ -94,6 +97,8 @@ class AlertService {
     required double lng,
     String? tripId,
     String? requestId,
+    DateTime? fixTime,
+    double? accuracy,
   }) async {
     _checkUser(userId);
     if (!AlertType.all.contains(type) ||
@@ -145,12 +150,23 @@ class AlertService {
     _checkUser(userId);
     bool smsOpened = false;
     bool dialerOpened = false;
+    final liveLocationUrl = phones.isEmpty
+        ? null
+        : await LiveSharingService.start(
+            alertId,
+            lat,
+            lng,
+            fixTime: fixTime,
+            accuracy: accuracy,
+          );
+    _checkUser(userId);
     final message = buildMessage(
       user: user,
       type: type,
       lat: lat,
       lng: lng,
       tripId: tripId,
+      liveLocationUrl: liveLocationUrl,
     );
     String? automaticSmsMessage;
     if (phones.isNotEmpty && AutomaticSmsService.enabled) {
@@ -199,6 +215,7 @@ class AlertService {
       smsOpened: smsOpened,
       dialerOpened: dialerOpened,
       automaticSmsMessage: automaticSmsMessage,
+      liveLocationUrl: liveLocationUrl,
       manualSmsUri: phones.isEmpty
           ? null
           : Uri.parse(
@@ -254,6 +271,7 @@ class AlertService {
     required double lat,
     required double lng,
     String? tripId,
+    String? liveLocationUrl,
   }) {
     final buffer = StringBuffer('SAFE WALK ALERT\n');
     buffer.writeln(
@@ -267,7 +285,14 @@ class AlertService {
     buffer.writeln(
       'Location at alert time: https://maps.google.com/?q=$lat,$lng',
     );
-    // Do not advertise a live viewer until a real authorized viewer is deployed.
+    if (liveLocationUrl != null) {
+      buffer.writeln(
+        'Live location (private link, up to 1 hour): $liveLocationUrl',
+      );
+      buffer.writeln(
+        'Do not forward this link. Check the location update time.',
+      );
+    }
     if (user != null) {
       if (user.bloodType.isNotEmpty) {
         buffer.writeln('Blood type: ${user.bloodType}');
