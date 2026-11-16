@@ -9,6 +9,79 @@ import '../../services/safety/motion_feed.dart';
 import '../../services/safety/safety_controller.dart';
 import '../../services/safety/sos_gateway.dart';
 
+/// Floating SOS button in the Aegis blue palette. Tapping it calls the same
+/// manual SOS action as before.
+class _SosButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SosButton({required this.onPressed});
+
+  static const Color _azure = Color(0xFF007FFF);
+  static const Color _dodger = Color(0xFF1E90FF);
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Send SOS alert',
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.rectangle,
+        borderRadius: BorderRadius.circular(40),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_azure, _dodger],
+        ),
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: _azure.withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const StadiumBorder(),
+          splashColor: Colors.white24,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 20, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.crisis_alert_rounded,
+                    color: _azure,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'SOS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class SafetyScope extends InheritedNotifier<SafetyController> {
   const SafetyScope({
     super.key,
@@ -24,6 +97,11 @@ class SafetyShell extends StatefulWidget {
   final WidgetBuilder homeBuilder;
   final SafetyController? controller;
   const SafetyShell({super.key, required this.homeBuilder, this.controller});
+
+  /// Number of open pages that hide the floating SOS button (e.g. Edit
+  /// Profile). Only the button is hidden; SOS and fall detection keep working.
+  static final ValueNotifier<int> sosButtonHiders = ValueNotifier<int>(0);
+
   @override
   State<SafetyShell> createState() => _SafetyShellState();
 }
@@ -86,19 +164,15 @@ class _SafetyShellState extends State<SafetyShell> with WidgetsBindingObserver {
                   MaterialPageRoute(builder: widget.homeBuilder),
             ),
             if (controller.phase == SafetyPhase.idle)
-              Positioned(
-                right: 16,
-                bottom: 88 + MediaQuery.paddingOf(context).bottom,
-                child: FloatingActionButton.extended(
-                  heroTag: 'global-sos',
-                  backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                  foregroundColor: Theme.of(
-                    context,
-                  ).colorScheme.onErrorContainer,
-                  onPressed: controller.manualSos,
-                  icon: const Icon(Icons.sos),
-                  label: const Text('Real SOS'),
-                ),
+              ValueListenableBuilder<int>(
+                valueListenable: SafetyShell.sosButtonHiders,
+                builder: (context, hiders, _) => hiders > 0
+                    ? const SizedBox.shrink()
+                    : Positioned(
+                        right: 16,
+                        bottom: 88 + MediaQuery.paddingOf(context).bottom,
+                        child: _SosButton(onPressed: controller.manualSos),
+                      ),
               ),
             if (controller.phase != SafetyPhase.idle)
               SafetyEventScreen(controller: controller),

@@ -404,7 +404,7 @@ void main() {
       );
       await tester.tap(find.text('Open screen'));
       await tester.pumpAndSettle();
-      expect(find.text('Real SOS'), findsOneWidget);
+      expect(find.text('SOS'), findsOneWidget);
       c.startCountdown(simulation: true);
       await tester.pump();
       expect(find.text('Demo: Are you OK?'), findsOneWidget);
