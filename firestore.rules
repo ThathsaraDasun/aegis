@@ -30,6 +30,31 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
+    // Guardian live-location mirror, keyed by an unguessable 64-char share token.
+    // - get: anyone who knows the token, only while the trip is active
+    // - list: denied, so the token is the only way to reach a document
+    // - create/update/delete: the trip owner only, with a fixed set of fields
+    match /shared_trips/{shareToken} {
+      function sharedFields() {
+        return request.resource.data.keys().hasOnly(
+          ['userId', 'currentLocation', 'destination', 'status', 'alerted', 'updatedAt']);
+      }
+
+      allow get: if resource.data.status == 'active';
+      allow list: if false;
+      allow create: if request.auth != null
+        && shareToken.matches('^[0-9a-f]{64}$')
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'active'
+        && sharedFields();
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.status in ['active', 'ended']
+        && sharedFields();
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
     // Alerts collection:
     // Owner only; alert IDs are not authorization tokens.
     // - list: owner only

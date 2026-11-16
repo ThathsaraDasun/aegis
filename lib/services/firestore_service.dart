@@ -5,8 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/alert_model.dart';
 import '../models/contact_model.dart';
 import '../models/hazard_report_model.dart';
+import '../models/shared_trip_model.dart';
 import '../models/trip_model.dart';
 import '../models/user_model.dart';
+import 'share_token.dart';
 
 /// Central Firestore database service used across the Safe Walk application.
 /// 
@@ -133,11 +135,51 @@ class FirestoreService {
   // ===========================================================================
 
   /// Creates a new trip document under `/trips`, assigns `tripId`, and returns the ID.
+  ///
+  /// An active trip also gets a guardian share token (generated here when the
+  /// model has none) and a public mirror at `shared_trips/{shareToken}`. Both
+  /// documents are written in one batch so a trip never exists without its link.
   Future<String> createTrip(TripModel trip) async {
     final ref = _db.collection('trips').doc(trip.tripId.isNotEmpty ? trip.tripId : null);
-    final data = _tripToMap(trip)..['tripId'] = ref.id;
-    await ref.set(data);
+    final shareToken = ShareToken.isValid(trip.shareToken)
+        ? trip.shareToken
+        : ShareToken.generate();
+    final data = _tripToMap(trip)
+      ..['tripId'] = ref.id
+      ..['shareToken'] = shareToken;
+    if (trip.status != TripStatus.active) {
+      await ref.set(data);
+      return ref.id;
+    }
+    final batch = _db.batch()
+      ..set(ref, data)
+      ..set(
+        _sharedTripRef(shareToken),
+        SharedTripModel.fromTrip(trip).toMap()
+          ..['updatedAt'] = FieldValue.serverTimestamp(),
+      );
+    await batch.commit();
     return ref.id;
+  }
+
+  DocumentReference<Map<String, dynamic>> _sharedTripRef(String shareToken) =>
+      _db.collection('shared_trips').doc(shareToken);
+
+  /// Applies [fields] to the guardian mirror. The mirror is best-effort: a
+  /// failure here must never block the owner's own trip write.
+  Future<void> _updateSharedTrip(
+    String? shareToken,
+    Map<String, dynamic> fields,
+  ) async {
+    if (!ShareToken.isValid(shareToken)) return;
+    try {
+      await _sharedTripRef(shareToken!).update({
+        ...fields,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      /* Old trips have no mirror; offline writes retry inside the SDK. */
+    }
   }
 
   /// Fetches a trip by [tripId].
@@ -155,26 +197,58 @@ class FirestoreService {
     });
   }
 
-  /// Updates the current GPS coordinates of an active trip.
-  Future<void> updateTripLocation(String tripId, double lat, double lng) async {
-    await _db.collection('trips').doc(tripId).update({
-      'currentLocation': {'lat': lat, 'lng': lng},
+  /// Streams the guardian mirror at `shared_trips/{shareToken}`.
+  ///
+  /// Works without signing in. Emits null when the document does not exist;
+  /// once the trip ends the rules deny the read and the stream errors with
+  /// `permission-denied`. A malformed token errors immediately.
+  Stream<SharedTripModel?> streamSharedTrip(String shareToken) {
+    if (!ShareToken.isValid(shareToken)) {
+      return Stream.error(ArgumentError.value(shareToken, 'shareToken'));
+    }
+    return _sharedTripRef(shareToken).snapshots().map((doc) {
+      final data = doc.data();
+      return data == null ? null : SharedTripModel.fromMap(data);
     });
   }
 
+  /// Updates the current GPS coordinates of an active trip, and of its
+  /// guardian mirror when [shareToken] is given.
+  Future<void> updateTripLocation(
+    String tripId,
+    double lat,
+    double lng, {
+    String? shareToken,
+  }) async {
+    final location = {'lat': lat, 'lng': lng};
+    await _db.collection('trips').doc(tripId).update({
+      'currentLocation': location,
+    });
+    await _updateSharedTrip(shareToken, {'currentLocation': location});
+  }
+
   /// Marks a trip as completed (or custom status) and sets `endedAt` to server timestamp.
-  Future<void> endTrip(String tripId, {String status = TripStatus.completed}) async {
+  /// The guardian mirror becomes `ended`, which the rules make unreadable.
+  Future<void> endTrip(
+    String tripId, {
+    String status = TripStatus.completed,
+    String? shareToken,
+  }) async {
     await _db.collection('trips').doc(tripId).update({
       'status': status,
       'endedAt': FieldValue.serverTimestamp(),
     });
+    await _updateSharedTrip(shareToken, {'status': SharedTripStatus.ended});
   }
 
   /// Sets the trip status to `alerted` when an emergency SOS or fall occurs.
-  Future<void> markTripAlerted(String tripId) async {
+  /// The guardian mirror stays `active` (so the link keeps working during the
+  /// emergency) and is flagged with `alerted: true`.
+  Future<void> markTripAlerted(String tripId, {String? shareToken}) async {
     await _db.collection('trips').doc(tripId).update({
       'status': TripStatus.alerted,
     });
+    await _updateSharedTrip(shareToken, {'alerted': true});
   }
 
   /// Streams the currently active trip for [userId], if any.
