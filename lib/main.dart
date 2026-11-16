@@ -86,23 +86,36 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             key: const Key('appbar-real-sos'),
             onPressed: () => SafetyScope.of(context).manualSos(),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD32F2F),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF007FFF),
+              padding: const EdgeInsets.fromLTRB(8, 0, 14, 0),
               minimumSize: const Size(0, 36),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+              shape: const StadiumBorder(
+                side: BorderSide(color: Color(0xFF66CCFF), width: 1.5),
               ),
-              elevation: 2,
+              elevation: 3,
+              shadowColor: Colors.black26,
             ),
-            icon: const Icon(Icons.sos, size: 20, color: Colors.white),
-            label: const Text(
-              'Real SOS',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                letterSpacing: 0.5,
+            icon: Container(
+              width: 24,
+              height: 24,
+              decoration: const BoxDecoration(
+                color: Color(0xFF007FFF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.crisis_alert_rounded,
+                size: 15,
                 color: Colors.white,
+              ),
+            ),
+            label: const Text(
+              'SOS',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                letterSpacing: 1.5,
+                color: Color(0xFF007FFF),
               ),
             ),
           ),
