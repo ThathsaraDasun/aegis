@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'firestore_service.dart';
 
-/// Enum to represent the state of location readiness
+/// Member 2 (Location & Maps Lead): Core GPS streaming & permission service.
 enum LocationStatus {
   ready,
   serviceDisabled,
