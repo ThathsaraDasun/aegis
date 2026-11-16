@@ -19,6 +19,7 @@ abstract class AuthService {
 
   /// Creates the account and sends the email verification link.
   Future<void> register(String email, String password);
+  Future<void> sendPasswordResetEmail(String email);
   Future<void> signOut();
   Future<bool> hasProfile(String uid);
   Future<void> saveProfile(String uid, String name, String phone);
@@ -116,6 +117,11 @@ class FirebaseAuthService implements AuthService {
   }
 
   @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  @override
   Future<void> signOut() async {
     await LiveSharingService.stop();
     await _auth.signOut();
@@ -148,8 +154,8 @@ String authErrorMessage(Object error) {
   if (error is FirebaseException) {
     return switch (error.code) {
       'invalid-credential' ||
-      'wrong-password' ||
-      'user-not-found' => 'The email or password is incorrect.',
+      'wrong-password' => 'The email or password is incorrect.',
+      'user-not-found' => 'No account was found with that email address.',
       'invalid-email' => 'Enter a valid email address.',
       'email-already-in-use' =>
         'An account already uses this email. Please sign in.',

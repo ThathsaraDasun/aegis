@@ -17,6 +17,9 @@ class FakeAuthService implements AuthService {
   int verificationEmails = 0;
   DateTime? sentAt;
   bool verified = true;
+  int resetPasswordCalls = 0;
+  String? resetPasswordEmail;
+  bool failResetPassword = false;
   String? passwordReceived;
   String? nameSaved;
   @override
@@ -65,6 +68,15 @@ class FakeAuthService implements AuthService {
       changes.add(account);
     }
     return verified;
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    resetPasswordCalls++;
+    resetPasswordEmail = email;
+    if (failResetPassword) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
   }
 
   @override
@@ -315,5 +327,94 @@ void main() {
     await tester.tap(find.text('Retry profile check'));
     await tester.pumpAndSettle();
     expect(find.text('Protected dashboard'), findsOneWidget);
+  });
+
+  testWidgets(
+    'forgot password opens dialog, pre-fills email, validates, and sends reset link',
+    (tester) async {
+      final service = FakeAuthService();
+      addTearDown(service.changes.close);
+      await mount(tester, service);
+
+      expect(find.text('Forgot password?'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email address'),
+        'reset-test@example.com',
+      );
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Reset password'), findsOneWidget);
+      expect(
+        find.text('reset-test@example.com'),
+        findsNWidgets(2),
+      ); // main field and dialog field
+
+      await tester.tap(find.text('Send reset link'));
+      await tester.pumpAndSettle();
+
+      expect(service.resetPasswordCalls, 1);
+      expect(service.resetPasswordEmail, 'reset-test@example.com');
+      expect(find.text('Reset password'), findsNothing); // Dialog dismissed
+      expect(
+        find.textContaining(
+          'Password reset link sent to reset-test@example.com',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'forgot password handles invalid email, service error, and dialog cancellation',
+    (tester) async {
+      final service = FakeAuthService()..failResetPassword = true;
+      addTearDown(service.changes.close);
+      await mount(tester, service);
+
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      // Submit empty email in dialog
+      await tester.tap(find.text('Send reset link'));
+      await tester.pumpAndSettle();
+      expect(service.resetPasswordCalls, 0);
+      expect(find.text('Enter a valid email address.'), findsOneWidget);
+
+      // Enter valid email but service fails
+      final dialogEmailFinder = find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(dialogEmailFinder, 'notfound@example.com');
+      await tester.tap(find.text('Send reset link'));
+      await tester.pumpAndSettle();
+
+      expect(service.resetPasswordCalls, 1);
+      expect(
+        find.text('No account was found with that email address.'),
+        findsOneWidget,
+      );
+
+      // Cancel dialog
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset password'), findsNothing);
+    },
+  );
+
+  testWidgets('forgot password button is hidden in registration mode', (
+    tester,
+  ) async {
+    final service = FakeAuthService();
+    addTearDown(service.changes.close);
+    await mount(tester, service);
+
+    expect(find.text('Forgot password?'), findsOneWidget);
+    await tester.tap(find.text('Create an account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Forgot password?'), findsNothing);
   });
 }

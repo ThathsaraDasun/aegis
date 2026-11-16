@@ -15,6 +15,8 @@ class _AuthPalette {
   static const Color error = Color(0xFFD93025);
 }
 
+const TextStyle _inputText = TextStyle(color: _AuthPalette.ink, fontSize: 15);
+
 class LoginScreen extends StatefulWidget {
   final AuthService service;
   const LoginScreen({super.key, required this.service});
@@ -69,9 +71,47 @@ class _LoginScreenState extends State<LoginScreen> {
     _form.currentState?.reset();
   });
 
+  Future<void> _showForgotPasswordDialog() async {
+    final sentEmail = await showDialog<String>(
+      context: context,
+      builder: (dialogCtx) => _ForgotPasswordDialog(
+        service: widget.service,
+        initialEmail: _email.text.trim(),
+      ),
+    );
+
+    if (sentEmail != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Password reset link sent to $sentEmail. Check your email.',
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: _AuthPalette.azure,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
   // ---------------------------------------------------------------- styling
 
-  InputDecoration _fieldDecoration({
+  static InputDecoration _fieldDecoration({
     required String label,
     String? hint,
     required IconData icon,
@@ -109,8 +149,6 @@ class _LoginScreenState extends State<LoginScreen> {
       focusedErrorBorder: border(_AuthPalette.error, 1.6),
     );
   }
-
-  static const _inputText = TextStyle(color: _AuthPalette.ink, fontSize: 15);
 
   // ------------------------------------------------------------------ build
 
@@ -223,6 +261,32 @@ class _LoginScreenState extends State<LoginScreen> {
               },
             ),
             if (_register) _PasswordChecklist(password: _password.text),
+            if (!_register) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _busy ? null : _showForgotPasswordDialog,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _AuthPalette.azure,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Forgot password?',
+                    style: TextStyle(
+                      color: _AuthPalette.azure,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeOutCubic,
@@ -509,4 +573,199 @@ class _Header extends StatelessWidget {
     height: size,
     decoration: BoxDecoration(color: color, shape: BoxShape.circle),
   );
+}
+
+class _ForgotPasswordDialog extends StatefulWidget {
+  final AuthService service;
+  final String initialEmail;
+
+  const _ForgotPasswordDialog({
+    required this.service,
+    required this.initialEmail,
+  });
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _emailController;
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendReset() async {
+    if (_sending || !_formKey.currentState!.validate()) return;
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    final targetEmail = _emailController.text.trim();
+    try {
+      await widget.service.sendPasswordResetEmail(targetEmail);
+      if (mounted) {
+        Navigator.of(context).pop(targetEmail);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _error = authErrorMessage(e);
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _AuthPalette.azure.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.lock_reset_rounded,
+                      color: _AuthPalette.azure,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Reset password',
+                      style: TextStyle(
+                        color: _AuthPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Enter your registered email address and we will send you a password reset link.',
+                style: TextStyle(
+                  color: _AuthPalette.muted,
+                  fontSize: 13.5,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: _emailController,
+                enabled: !_sending,
+                style: _inputText,
+                cursorColor: _AuthPalette.azure,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                autocorrect: false,
+                decoration: _LoginScreenState._fieldDecoration(
+                  label: 'Email address',
+                  hint: 'example@gmail.com',
+                  icon: Icons.mail_outline_rounded,
+                ),
+                validator: (v) =>
+                    RegExp(
+                      r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                    ).hasMatch((v ?? '').trim())
+                    ? null
+                    : 'Enter a valid email address.',
+                onFieldSubmitted: (_) => _sendReset(),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _AuthPalette.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _AuthPalette.error.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: _AuthPalette.error,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: _AuthPalette.error,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        TextButton(
+          onPressed: _sending ? null : () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(foregroundColor: _AuthPalette.muted),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _sending ? null : _sendReset,
+          style: FilledButton.styleFrom(
+            backgroundColor: _AuthPalette.azure,
+            foregroundColor: Colors.white,
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          ),
+          child: _sending
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Send reset link'),
+        ),
+      ],
+    );
+  }
 }
