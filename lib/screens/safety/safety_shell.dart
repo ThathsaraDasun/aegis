@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 import '../../services/safety/background_monitor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -504,54 +505,84 @@ class SafetyDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = SafetyScope.of(context);
     final busy = c.changingMonitoring || c.changingSms;
-    final text = Theme.of(context).textTheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
       children: [
         Row(
           children: [
             Expanded(
-              child: Text('Your safety controls', style: text.headlineSmall),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Your safety controls',
+                    style: GoogleFonts.outfit(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: AegisColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Stay protected while you walk',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      color: AegisColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            IconButton(
-              tooltip: 'How protection works',
-              icon: const Icon(Icons.info_outline, color: AegisColors.primary),
-              onPressed: () => showSafetyGuide(context),
+            Material(
+              color: Colors.white,
+              shape: const CircleBorder(
+                side: BorderSide(color: AegisColors.surfaceContainerHighest),
+              ),
+              child: IconButton(
+                tooltip: 'How protection works',
+                icon: const Icon(
+                  Icons.info_outline_rounded,
+                  color: AegisColors.azure,
+                ),
+                onPressed: () => showSafetyGuide(context),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         const _SafetyGuideTip(),
         _ProtectionStatusCard(active: c.monitoring, sms: c.automaticSms),
-        const SizedBox(height: 16),
-        Card(
+        const SizedBox(height: 22),
+        const _SectionTitle('Protection settings'),
+        _Panel(
           child: Column(
             children: [
-              SwitchListTile(
-                secondary: const Icon(Icons.personal_injury_outlined),
-                title: const Text('Fall monitoring'),
-                subtitle: Text(
-                  c.changingMonitoring
-                      ? 'Updating protection…'
-                      : c.monitoring
-                      ? 'On – works even when the phone is locked'
-                      : 'Detects a hard fall and starts a countdown',
-                ),
+              _ToggleRow(
+                icon: Icons.personal_injury_outlined,
+                title: 'Fall monitoring',
+                subtitle: c.changingMonitoring
+                    ? 'Updating protection…'
+                    : c.monitoring
+                    ? 'On – works even when the phone is locked'
+                    : 'Detects a hard fall and starts a countdown',
                 value: c.monitoring,
                 onChanged: busy ? null : c.setMonitoring,
               ),
               if (AutomaticSmsService.supported) ...[
-                const Divider(height: 1, indent: 16, endIndent: 16),
-                SwitchListTile(
-                  secondary: const Icon(Icons.sms_outlined),
-                  title: const Text('Automatic guardian SMS'),
-                  subtitle: Text(
-                    c.changingSms
-                        ? 'Checking SMS setup…'
-                        : c.monitoring
-                        ? 'Turn off fall monitoring to change this'
-                        : 'Texts your guardians if you don\'t respond',
-                  ),
+                const Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: AegisColors.surfaceContainerHigh,
+                ),
+                _ToggleRow(
+                  icon: Icons.sms_outlined,
+                  title: 'Automatic guardian SMS',
+                  subtitle: c.changingSms
+                      ? 'Checking SMS setup…'
+                      : c.monitoring
+                      ? 'Turn off fall monitoring to change this'
+                      : 'Texts your guardians if you don\'t respond',
                   value: c.automaticSms,
                   onChanged: c.monitoring || busy
                       ? null
@@ -564,101 +595,203 @@ class SafetyDashboard extends StatelessWidget {
         if (c.notice != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Semantics(liveRegion: true, child: Text(c.notice!)),
+            child: Semantics(
+              liveRegion: true,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AegisColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: AegisColors.azure,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        c.notice!,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: AegisColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 22),
+        const _SectionTitle('Quick actions'),
+        _SosActionButton(onPressed: c.manualSos),
+        const SizedBox(height: 12),
         SizedBox(
-          height: 52,
-          child: FilledButton.icon(
+          height: 56,
+          child: OutlinedButton.icon(
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const StartTripScreen())),
-            icon: const Icon(Icons.directions_walk),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AegisColors.azure,
+              side: const BorderSide(color: AegisColors.azure, width: 1.5),
+              shape: const StadiumBorder(),
+              textStyle: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            icon: const Icon(Icons.directions_walk_rounded),
             label: const Text('Start live trip'),
           ),
         ),
-        if (LiveSharingService.supported)
-          const Padding(
-            padding: EdgeInsets.only(top: 12, bottom: 8),
-            child: Text(
-              'SOS can include a private live-location link for up to one hour. '
-              'Anyone with the link can view. Stop sharing below, from the SOS result, or from the phone notification.',
+        if (LiveSharingService.supported) ...[
+          const SizedBox(height: 12),
+          // From main (#29): stop SOS live-location sharing, restyled to
+          // match the page. Same LiveSharingService.stop() call and messages.
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AegisColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.share_location_rounded,
+                  size: 18,
+                  color: AegisColors.azure,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'SOS can include a private live-location link for up to one hour. '
+                    'Anyone with the link can view. Stop sharing below, from the SOS result, or from the phone notification.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12.5,
+                      color: AegisColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        if (LiveSharingService.supported)
-          OutlinedButton.icon(
-            icon: const Icon(Icons.location_disabled_outlined),
-            label: const Text('Stop SOS location sharing'),
-            onPressed: () async {
-              String message;
-              try {
-                await LiveSharingService.stop();
-                message =
-                    'SOS location sharing stopped. This does not send an all-clear message.';
-              } catch (e) {
-                message = authErrorMessage(e);
-              }
-              if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(message)));
-              }
-            },
-          ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: c.manualSos,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFD32F2F),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 50,
+            child: TextButton.icon(
+              icon: const Icon(Icons.location_disabled_outlined),
+              label: const Text('Stop SOS location sharing'),
+              style: TextButton.styleFrom(
+                foregroundColor: AegisColors.azure,
+                shape: const StadiumBorder(),
+                textStyle: GoogleFonts.outfit(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              onPressed: () async {
+                String message;
+                try {
+                  await LiveSharingService.stop();
+                  message =
+                      'SOS location sharing stopped. This does not send an all-clear message.';
+                } catch (e) {
+                  message = authErrorMessage(e);
+                }
+                if (context.mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(message)));
+                }
+              },
             ),
           ),
-          icon: const Icon(Icons.sos, size: 24),
-          label: const Text(
-            'Trigger Real SOS Now',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          clipBehavior: Clip.antiAlias,
+        ],
+        const SizedBox(height: 22),
+        _Panel(
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
-              leading: const Icon(Icons.science_outlined),
-              title: const Text('Practice & testing'),
-              subtitle: const Text(
+              shape: const RoundedRectangleBorder(),
+              collapsedShape: const RoundedRectangleBorder(),
+              iconColor: AegisColors.azure,
+              collapsedIconColor: AegisColors.textSecondary,
+              leading: const _IconSquare(Icons.science_outlined),
+              title: Text(
+                'Practice & testing',
+                style: GoogleFonts.outfit(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AegisColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
                 'Try the countdown safely – no alerts are sent',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: AegisColors.textSecondary,
+                ),
               ),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Demo mode'),
-                  subtitle: const Text(
+                  activeThumbColor: Colors.white,
+                  activeTrackColor: AegisColors.azure,
+                  title: Text(
+                    'Demo mode',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w600,
+                      color: AegisColors.textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
                     'Easier to trigger with a gentle shake; alerts are only simulated. Real SOS stays real.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: AegisColors.textSecondary,
+                    ),
                   ),
                   value: c.demo,
                   onChanged: busy ? null : c.setDemo,
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: c.changingMonitoring
-                      ? null
-                      : () async {
-                          if (c.monitoring) await c.setMonitoring(false);
-                          c.startCountdown(simulation: true);
-                        },
-                  icon: const Icon(Icons.timer_outlined),
-                  label: const Text('Practice countdown (no alerts)'),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonalIcon(
+                    onPressed: c.changingMonitoring
+                        ? null
+                        : () async {
+                            if (c.monitoring) await c.setMonitoring(false);
+                            c.startCountdown(simulation: true);
+                          },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AegisColors.surfaceContainerHigh,
+                      foregroundColor: AegisColors.azure,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: const StadiumBorder(),
+                      textStyle: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    icon: const Icon(Icons.timer_outlined),
+                    label: const Text('Practice countdown (no alerts)'),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Practice stops fall monitoring – switch it on again afterwards.',
-                  style: text.bodySmall,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: AegisColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -669,6 +802,192 @@ class SafetyDashboard extends StatelessWidget {
   }
 }
 
+/// White rounded panel with a soft border and shadow.
+class _Panel extends StatelessWidget {
+  final Widget child;
+  const _Panel({required this.child});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: AegisColors.surfaceContainerHigh),
+      boxShadow: [
+        BoxShadow(
+          color: AegisColors.azure.withValues(alpha: 0.07),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 4, bottom: 10),
+    child: Text(
+      text.toUpperCase(),
+      style: GoogleFonts.outfit(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+        color: AegisColors.azure,
+      ),
+    ),
+  );
+}
+
+/// Light-blue rounded icon square used at the start of rows.
+class _IconSquare extends StatelessWidget {
+  final IconData icon;
+  const _IconSquare(this.icon);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 40,
+    height: 40,
+    decoration: BoxDecoration(
+      color: AegisColors.azure.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Icon(icon, color: AegisColors.azure, size: 21),
+  );
+}
+
+/// A switch row with an icon square, title and subtitle.
+class _ToggleRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  const _ToggleRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) => SwitchListTile(
+    contentPadding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+    secondary: _IconSquare(icon),
+    activeThumbColor: Colors.white,
+    activeTrackColor: AegisColors.azure,
+    title: Text(
+      title,
+      style: GoogleFonts.outfit(
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
+        color: AegisColors.textPrimary,
+      ),
+    ),
+    subtitle: Text(
+      subtitle,
+      style: GoogleFonts.outfit(fontSize: 13, color: AegisColors.textSecondary),
+    ),
+    value: value,
+    onChanged: onChanged,
+  );
+}
+
+/// Large SOS action: same manual SOS call as before, in the blue palette.
+class _SosActionButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  const _SosActionButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'SOS. Alert your guardians now',
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AegisColors.azure, AegisColors.dodgerBlue],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AegisColors.azure.withValues(alpha: 0.35),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(24),
+          splashColor: Colors.white24,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 20, 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      width: 4,
+                      strokeAlign: BorderSide.strokeAlignOutside,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.crisis_alert_rounded,
+                    color: AegisColors.azure,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SOS',
+                        style: GoogleFonts.outfit(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 3,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Alert your guardians now',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 /// Big, glanceable "am I protected?" summary at the top of the Safety tab.
 class _ProtectionStatusCard extends StatelessWidget {
   final bool active;
@@ -677,23 +996,34 @@ class _ProtectionStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AegisColors.primary : AegisColors.textSecondary;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: active
             ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [AegisColors.azure, AegisColors.dodgerBlue],
               )
             : null,
         color: active ? null : Colors.white,
-        borderRadius: BorderRadius.circular(AegisRadius.xl),
-        border: active ? null : Border.all(color: AegisColors.outline),
+        borderRadius: BorderRadius.circular(24),
+        border: active
+            ? null
+            : Border.all(color: AegisColors.surfaceContainerHigh),
+        boxShadow: [
+          BoxShadow(
+            color: AegisColors.azure.withValues(alpha: active ? 0.30 : 0.07),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: active
                   ? Colors.white.withValues(alpha: 0.2)
@@ -701,8 +1031,8 @@ class _ProtectionStatusCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              active ? Icons.verified_user : Icons.shield_outlined,
-              color: active ? Colors.white : color,
+              active ? Icons.verified_user_rounded : Icons.shield_outlined,
+              color: active ? Colors.white : AegisColors.azure,
               size: 28,
             ),
           ),
@@ -713,20 +1043,20 @@ class _ProtectionStatusCard extends StatelessWidget {
               children: [
                 Text(
                   active ? 'You are protected' : 'Protection is off',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                     color: active ? Colors.white : AegisColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   active
                       ? (sms
                             ? 'Fall monitoring on · guardians get an SMS if you don\'t respond'
                             : 'Fall monitoring on · you send the alert yourself')
                       : 'Turn on fall monitoring before you walk alone',
-                  style: TextStyle(
+                  style: GoogleFonts.outfit(
                     fontSize: 13,
                     color: active
                         ? Colors.white.withValues(alpha: 0.9)
@@ -734,6 +1064,25 @@ class _ProtectionStatusCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: active
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : AegisColors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              active ? 'ON' : 'OFF',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
+                color: active ? Colors.white : AegisColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -758,8 +1107,9 @@ class _SafetyGuideTipState extends State<_SafetyGuideTip> {
     super.initState();
     SharedPreferences.getInstance()
         .then((p) {
-          if (mounted && p.getBool(_prefKey) != true)
+          if (mounted && p.getBool(_prefKey) != true) {
             setState(() => _visible = true);
+          }
         })
         .catchError((_) {});
   }
@@ -778,17 +1128,24 @@ class _SafetyGuideTipState extends State<_SafetyGuideTip> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 10, 4, 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
         decoration: BoxDecoration(
-          color: AegisColors.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(AegisRadius.lg),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AegisColors.surfaceContainerHigh),
         ),
         child: Row(
           children: [
-            const Icon(Icons.lightbulb_outline, color: AegisColors.primary),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text('New to Aegis? See how protection works.'),
+            const _IconSquare(Icons.lightbulb_outline_rounded),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'New to Aegis? See how protection works.',
+                style: GoogleFonts.outfit(
+                  fontSize: 13.5,
+                  color: AegisColors.textPrimary,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () {
