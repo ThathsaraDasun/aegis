@@ -234,6 +234,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
                   plannedRoutePoints: _plannedRoutePoints,
                   guardianLink: guardians.link,
                   guardianShare: guardians.share,
+                  sharingError: TripShareService.instance.lastStartError,
                 ),
           ),
         );

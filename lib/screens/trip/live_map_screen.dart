@@ -25,6 +25,7 @@ class LiveMapScreen extends StatefulWidget {
 
   /// Prepared trip-start alert for guardians (SMS/WhatsApp options).
   final TripStartShare? guardianShare;
+  final String? sharingError;
 
   const LiveMapScreen({
     super.key,
@@ -32,6 +33,7 @@ class LiveMapScreen extends StatefulWidget {
     this.plannedRoutePoints = const [],
     this.guardianLink,
     this.guardianShare,
+    this.sharingError,
   });
   @override
   State<LiveMapScreen> createState() => _LiveMapScreenState();
@@ -222,11 +224,13 @@ class _LiveMapScreenState extends State<LiveMapScreen>
               : 'Send them your live link. It keeps working with the screen locked and stops when you end the trip.');
     } else {
       title = 'Live sharing is off';
-      detail = share == null
-          ? 'Could not prepare guardian sharing. Check your connection; no message has been confirmed.'
-          : share.contactCount == 0
-          ? 'No guardians saved – add one in the Guardians tab.'
-          : 'Could not create a live link (check internet). You can still send your starting location.';
+      detail =
+          widget.sharingError ??
+          (share == null
+              ? 'Could not prepare guardian sharing. Check your connection; no message has been confirmed.'
+              : share.contactCount == 0
+              ? 'No guardians saved – add one in the Guardians tab.'
+              : 'Could not create a live link (check internet). You can still send your starting location.');
     }
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
