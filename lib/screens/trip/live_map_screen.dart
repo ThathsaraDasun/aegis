@@ -215,12 +215,16 @@ class _LiveMapScreenState extends State<LiveMapScreen>
       title = 'Guardians can follow this trip';
       detail =
           autoMessage ??
-          (share == null || share.contactCount == 0
+          (share == null
+              ? 'Could not load guardian messaging details. No message has been confirmed; contact your guardian directly.'
+              : share.contactCount == 0
               ? 'No guardians saved – add one in the Guardians tab to share your trip.'
               : 'Send them your live link. It keeps working with the screen locked and stops when you end the trip.');
     } else {
       title = 'Live sharing is off';
-      detail = share == null || share.contactCount == 0
+      detail = share == null
+          ? 'Could not prepare guardian sharing. Check your connection; no message has been confirmed.'
+          : share.contactCount == 0
           ? 'No guardians saved – add one in the Guardians tab.'
           : 'Could not create a live link (check internet). You can still send your starting location.';
     }
