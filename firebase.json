@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "aegis-45002",
     "public": "sos-viewer",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [{"source": "**", "headers": [

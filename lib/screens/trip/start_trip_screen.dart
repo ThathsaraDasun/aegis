@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,6 +13,7 @@ import '../../services/alert_service.dart';
 import '../../services/destination_search_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/location_service.dart';
+import '../../services/trip_share_service.dart';
 import '../../widgets/location_permission_prompt.dart';
 import 'destination_search_sheet.dart';
 import 'live_map_screen.dart';
@@ -135,6 +137,49 @@ class _StartTripScreenState extends State<StartTripScreen> {
     }
   }
 
+  Future<({String? link, TripStartShare? share})> _shareWithGuardians({
+    required String uid,
+    required String tripId,
+    required Position position,
+    required LatLng destination,
+  }) async {
+    if (Firebase.apps.isEmpty) return (link: null, share: null);
+    String? link;
+    try {
+      link = await TripShareService.instance
+          .start(
+            tripId: tripId,
+            lat: position.latitude,
+            lng: position.longitude,
+            accuracy: position.accuracy,
+            fixTime: position.timestamp,
+            destination: {
+              'lat': destination.latitude,
+              'lng': destination.longitude,
+            },
+            destinationName: _destinationName,
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    TripStartShare? share;
+    try {
+      final contacts = await FirestoreService.instance
+          .getContacts(uid)
+          .timeout(const Duration(seconds: 8));
+      share = await AlertService.instance
+          .prepareTripStartShare(
+            userId: uid,
+            contactIds: [for (final c in contacts) c.id],
+            lat: position.latitude,
+            lng: position.longitude,
+            tripId: tripId,
+            liveLocationUrl: link,
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {}
+    return (link: link, share: share);
+  }
+
   Future<void> _start() async {
     if (_starting || _destination == null) return;
     setState(() {
@@ -168,17 +213,16 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 'lng': destination.longitude,
               },
               startedAt: DateTime.now(),
+              destinationName: _destinationName,
             ),
           )
           .timeout(const Duration(seconds: 15));
 
-      final guardians = await AlertService.instance.prepareTripStartShare(
-        userId: uid,
-        contactIds: const [],
-        lat: p.latitude,
-        lng: p.longitude,
+      final guardians = await _shareWithGuardians(
+        uid: uid,
         tripId: id,
-        liveLocationUrl: 'https://aegis.safe/trip/$id',
+        position: p,
+        destination: destination,
       );
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -188,8 +232,9 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 LiveMapScreen(
                   tripId: id,
                   plannedRoutePoints: _plannedRoutePoints,
-                  guardianLink: guardians.automaticSmsMessage,
-                  guardianShare: guardians,
+                  guardianLink: guardians.link,
+                  guardianShare: guardians.share,
+                  sharingError: TripShareService.instance.lastStartError,
                 ),
           ),
         );
@@ -203,84 +248,86 @@ class _StartTripScreenState extends State<StartTripScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Choose your destination')),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _status != LocationStatus.ready
-                ? LocationPermissionPrompt(status: _status, onRetry: _locate)
-                : _origin == null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_error ?? 'Location unavailable'),
-                            TextButton(onPressed: _locate, child: const Text('Retry')),
-                            TextButton(
-                              onPressed: Geolocator.openLocationSettings,
-                              child: const Text('Open location settings'),
-                            ),
-                            TextButton(
-                              onPressed: Geolocator.openAppSettings,
-                              child: const Text('Open app permissions'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                            child: OutlinedButton.icon(
-                              onPressed: _starting ? null : _searchDestination,
-                              icon: const Icon(Icons.search),
-                              label: const Text('Search for a shop, school or address'),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text(
-                              'Tap the map to choose a destination. Internet is needed for map tiles.',
-                            ),
-                          ),
-                          Expanded(
-                            child: TripMap(
-                              center: _origin!,
-                              controller: _mapController,
-                              tileProvider: widget.tileProvider,
-                              current: _origin,
-                              destination: _destination,
-                              onTap: _starting
-                                  ? null
-                                  : (point) => setState(() {
-                                        _destination = point;
-                                        _destinationName = null;
-                                      }),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                            child: Text(
-                              _destination == null
-                                  ? 'Select a destination to continue.'
-                                  : _destinationName ??
-                                      'Destination: ${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (_error != null)
-                            Padding(padding: const EdgeInsets.all(8), child: Text(_error!)),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 160),
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: _starting || _destination == null ? null : _start,
-                                child: Text(_starting ? 'Starting trip…' : 'Start trip'),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-      );
+    appBar: AppBar(title: const Text('Choose your destination')),
+    body: _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _status != LocationStatus.ready
+        ? LocationPermissionPrompt(status: _status, onRetry: _locate)
+        : _origin == null
+        ? Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error ?? 'Location unavailable'),
+                TextButton(onPressed: _locate, child: const Text('Retry')),
+                TextButton(
+                  onPressed: Geolocator.openLocationSettings,
+                  child: const Text('Open location settings'),
+                ),
+                TextButton(
+                  onPressed: Geolocator.openAppSettings,
+                  child: const Text('Open app permissions'),
+                ),
+              ],
+            ),
+          )
+        : Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: OutlinedButton.icon(
+                  onPressed: _starting ? null : _searchDestination,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search for a shop, school or address'),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Tap the map to choose a destination. Internet is needed for map tiles.',
+                ),
+              ),
+              Expanded(
+                child: TripMap(
+                  center: _origin!,
+                  controller: _mapController,
+                  tileProvider: widget.tileProvider,
+                  current: _origin,
+                  destination: _destination,
+                  onTap: _starting
+                      ? null
+                      : (point) => setState(() {
+                          _destination = point;
+                          _destinationName = null;
+                        }),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  _destination == null
+                      ? 'Select a destination to continue.'
+                      : _destinationName ??
+                            'Destination: ${_destination!.latitude.toStringAsFixed(5)}, ${_destination!.longitude.toStringAsFixed(5)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (_error != null)
+                Padding(padding: const EdgeInsets.all(8), child: Text(_error!)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 160),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _starting || _destination == null
+                        ? null
+                        : _start,
+                    child: Text(_starting ? 'Starting trip…' : 'Start trip'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+  );
 }

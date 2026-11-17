@@ -42,6 +42,7 @@ class TripShareService {
   String? _tripId;
   DateTime _lastUpload = DateTime.fromMillisecondsSinceEpoch(0);
   bool _uploading = false;
+  String? lastStartError;
 
   /// Whether sharing can run here (Android app with Firebase initialised).
   static bool get supported =>
@@ -80,14 +81,25 @@ class TripShareService {
     required Map<String, double> destination,
     String? destinationName,
   }) async {
-    if (!supported) return null;
+    lastStartError = null;
+    if (!supported) {
+      lastStartError = 'Live sharing needs Android with Firebase connected.';
+      return null;
+    }
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return null;
+    if (uid == null) {
+      lastStartError = 'Sign in again to start live sharing.';
+      return null;
+    }
     if (isSharing(tripId)) return linkForTrip(tripId);
     await stopCurrent();
 
     // Never send guardians a link before the viewer page is deployed.
-    if (!await _viewerReady()) return null;
+    if (!await _viewerReady()) {
+      lastStartError =
+          'The live-trip web page could not be reached. Check your connection and try a new trip.';
+      return null;
+    }
 
     final token = newToken();
     final hasFix =
@@ -119,7 +131,14 @@ class TripShareService {
                 : (name.length > 120 ? name.substring(0, 120) : name),
           })
           .timeout(const Duration(seconds: 10));
+    } on FirebaseException catch (e) {
+      lastStartError = e.code == 'permission-denied'
+          ? 'Firebase denied live-trip sharing. The trip-sharing database rules need to be published.'
+          : 'Could not save the live link (${e.code}). Only the fixed starting location is available.';
+      return null;
     } catch (_) {
+      lastStartError =
+          'Could not save the live link. Check your connection; only the fixed starting location is available.';
       return null;
     }
 

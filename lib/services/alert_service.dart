@@ -120,10 +120,20 @@ class AlertService {
     String? liveLocationUrl,
   }) {
     final live = Uri.tryParse(liveLocationUrl ?? '');
-    final link = live != null && live.isScheme('https') && live.host.isNotEmpty
-        ? liveLocationUrl!
-        : 'https://maps.google.com/?q=$lat,$lng';
-    return 'I started a Safe Walk. Follow my live location: $link';
+    final hasLiveLink =
+        live != null &&
+        live.isScheme('https') &&
+        live.host == 'aegis-45002.web.app' &&
+        live.path == '/trip/' &&
+        RegExp(r'^[a-f0-9]{64}$').hasMatch(live.fragment);
+    return [
+      'I started a Safe Walk.',
+      'Starting location (fixed pin): https://maps.google.com/?q=$lat,$lng',
+      if (hasLiveLink)
+        'Follow my live location: $liveLocationUrl'
+      else
+        'Live tracking is unavailable. The pin above does not update.',
+    ].join('\n\n');
   }
 
   /// Trip-end text for guardians. When the walker confirmed arrival it says
